@@ -1,0 +1,32 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}M&M{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'core/styles.css' %}">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <ul class="menu">
+        {% if user.is_authenticated %}
+          {% if user.is_staff %}
+            <li><a href="{% url 'admin_dashboard' %}">Panel</a></li>
+            <li><a href="{% url 'create_product' %}">Nuevo Evento</a></li>
+            <li><a href="{% url 'create_artist' %}">Nuevo Artista</a></li>
+          {% endif %}
+          <li><a href="{% url 'logout' %}">Cerrar sesión</a></li>
+          
+        {% else %}
+          <li><a href="{% url 'login' %}">Iniciar sesión</a></li>
+          <li><a href="{% url 'register' %}">Registrarse</a></li>
+        {% endif %}
+    </div>
+  </nav>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
