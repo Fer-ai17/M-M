@@ -193,33 +193,8 @@ def events_list(request):
     # obtiene eventos con location para evitar consultas N+1
     events = Events.objects.select_related("location").all()
 
-    # moneda válida: COP o USD (por defecto COP)
-    currency = request.session.get("currency", "COP")
-    if currency not in ["COP", "USD"]:
-        currency = "COP"
-        request.session["currency"] = currency
-
-    locale = "es_CO" if currency == "COP" else "en_US"
-
-    converted_events = []
-    for e in events:
-        base_price = e.location.price
-        if currency == "COP":
-            local_price = base_price
-        else:
-            # convert_currency(amount, from_currency, to_currency)
-            local_price = convert_currency(base_price, "COP", currency)
-
-        converted_events.append({
-            "obj": e,
-            "converted_price": format_price(local_price, currency, locale),
-            "currency": currency,
-            "base_price": format_price(base_price, "COP", "es_CO"),
-        })
-
     return render(request, "store/product_list.html", {
-        "events": converted_events,
-        "current_currency": currency
+        "events": events
     })
 
 def add_to_cart(request, pk):

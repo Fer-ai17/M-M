@@ -16,7 +16,7 @@
   </div>
   <div class="summary-card">
     <h3>{{ total_orders }}</h3>
-    <p>Pedidos realizados</p>
+    <p>Compras realizadas</p>
   </div>
 </div>
 
@@ -42,7 +42,7 @@
         <td><a href="{% url 'order_detail' order.id %}">Ver</a></td>
       </tr>
     {% empty %}
-      <tr><td colspan="5">No hay pedidos aún.</td></tr>
+      <tr><td colspan="5">No hay compras aún.</td></tr>
     {% endfor %}
   </tbody>
 </table>
