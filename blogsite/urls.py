@@ -10,6 +10,12 @@ urlpatterns = [
     path("dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("dashboard/events/", views.admin_dashboard_events, name="admin_dashboard_events"),
     
+    #interactive maping for seating
+    path('events/<int:event_id>/seats/', views.seat_map, name='seat_map'),
+    path('seats/<int:seat_id>/toggle/', views.toggle_seat, name='toggle_seat'),
+    path('events/<int:event_id>/reserve-seats/', views.reserve_seats, name='reserve_seats'),
+    path('venue-designer/<int:venue_id>/', views.seat_map_designer, name='seat_map_designer'),
+
     # CRUD - Events
     path("events/new/", views.create_events, name="create_events"),
     path("events/<int:pk>/edit/", views.edit_events, name="edit_events"),

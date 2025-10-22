@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block content %}
+<h1>Diseñador de mapa de asientos: {{ venue.name }}</h1>
+
+<div class="design-container">
+    <div class="design-tools">
+        <h2>Herramientas</h2>
+        
+        <div class="section-selector">
+            <label for="section">Sección:</label>
+            <select id="section">
+                {% for section in sections %}
+                <option value="{{ section.id }}" data-color="{{ section.color }}">{{ section.name }} (${{ section.price }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="action-buttons">
+            <button id="addSeat">Añadir asiento</button>
+            <button id="deleteSeat" disabled>Eliminar</button>
+        </div>
+        
+        <div class="seat-form" id="seatForm">
+            <h3>Propiedades del asiento</h3>
+            <div class="form-group">
+                <label for="seatRow">Fila:</label>
+                <input type="text" id="seatRow" value="A">
+            </div>
+            <div class="form-group">
+                <label for="seatNumber">Número:</label>
+                <input type="text" id="seatNumber" value="1">
+            </div>
+            <div class="form-group">
+                <label for="seatStatus">Estado:</label>
+                <select id="seatStatus">
+                    <option value="available">Disponible</option>
+                    <option value="blocked">Bloqueado</option>
+                </select>
+            </div>
+            <button id="applyProperties">Aplicar</button>
+        </div>
+        
+        <div class="seat-map-tools">
+            <h3>Opciones de mapa</h3>
+            <button id="bulkCreate">Crear filas en bloque</button>
+            <button id="saveMap">Guardar mapa</button>
+        </div>
+    </div>
+    
+    <div class="seat-map" id="seatMap">
+        <!-- Los asientos se cargarán/crearán dinámicamente -->
+    </div>
+</div>
+
+<div id="bulkCreateModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+    <div style="background:white; margin:10% auto; padding:20px; width:500px; border-radius:5px;">
+        <h3>Crear asientos en bloque</h3>
+        
+        <div class="form-group">
+            <label for="rowStart">Fila inicial:</label>
+            <input type="text" id="rowStart" value="A">
+        </div>
+        <div class="form-group">
+            <label for="rowCount">Número de filas:</label>
+            <input type="number" id="rowCount" value="5" min="1">
+        </div>
+        <div class="form-group">
+            <label for="seatsPerRow">Asientos por fila:</label>
+            <input type="number" id="seatsPerRow" value="10" min="1">
+        </div>
+        <div class="form-group">
+            <label for="horizontalGap">Espacio horizontal entre asientos:</label>
+            <input type="number" id="horizontalGap" value="40" min="20">
+        </div>
+        <div class="form-group">
+            <label for="verticalGap">Espacio vertical entre filas:</label>
+            <input type="number" id="verticalGap" value="40" min="20">
+        </div>
+        <div class="form-group">
+            <label for="startX">Posición X inicial:</label>
+            <input type="number" id="startX" value="100">
+        </div>
+        <div class="form-group">
+            <label for="startY">Posición Y inicial:</label>
+            <input type="number" id="startY" value="100">
+        </div>
+        
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+            <button id="cancelBulkCreate">Cancelar</button>
+            <button id="createBulk">Crear</button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const seatMap = document.getElementById('seatMap');
+    const seatForm = document.getElementById('seatForm');
+    const sectionSelect = document.getElementById('section');
+    const addSeatButton = document.getElementById('addSeat');
+    const deleteSeatButton = document.getElementById('deleteSeat');
+    const applyPropertiesButton = document.getElementById('applyProperties');
+    const saveMapButton = document.getElementById('saveMap');
+    
+    // Variables de estado
+    let seats = [];
+    let selectedSeat = null;
+    let nextSeatId = -1; // IDs temporales para nuevos asientos
+    
+    // Cargar asientos existentes
+    const existingSeats = {{ seats_json|safe }} || [];
+    
+    existingSeats.forEach(seat => {
+        createSeatElement(seat);
+    });
+    
+    // Añadir nuevo asiento
+    addSeatButton.addEventListener('click', function() {
+        const selectedSection = sectionSelect.options[sectionSelect.selectedIndex];
+        const sectionId = selectedSection.value;
+        const sectionColor = selectedSection.dataset.color;
+        
+        const newSeat = {
+            id: nextSeatId--,
+            section__id: sectionId,
+            row: document.getElementById('seatRow').value,
+            number: document.getElementById('seatNumber').value,
+            x_position: 100,
+            y_position: 100,
+            status: 'available'
+        };
+        
+        createSeatElement(newSeat, sectionColor);
+    });
+    
+    // Crear elemento de asiento y añadirlo al mapa
+    function createSeatElement(seat, color) {
+        const seatEl = document.createElement('div');
+        seatEl.className = 'seat';
+        seatEl.id = `seat-${seat.id}`;
+        seatEl.dataset.id = seat.id;
+        seatEl.dataset.sectionId = seat.section__id;
+        seatEl.dataset.row = seat.row;
+        seatEl.dataset.number = seat.number;
+        seatEl.dataset.status = seat.status;
+        
+        // Posicionar
+        seatEl.style.left = `${seat.x_position}px`;
+        seatEl.style.top = `${seat.y_position}px`;
+        
+        // Color por sección
+        if (color) {
+            seatEl.style.backgroundColor = color;
+        }
+        
+        // Etiqueta
+        seatEl.innerHTML = `${seat.row}-${seat.number}`;
+        
+        // Eventos
+        seatEl.addEventListener('mousedown', startDrag);
+        seatEl.addEventListener('click', selectSeat);
+        
+        seatMap.appendChild(seatEl);
+        seats.push(seatEl);
+        
+        return seatEl;
+    }
+    
+    // Seleccionar asiento
+    function selectSeat(e) {
+        e.stopPropagation();
+        
+        if (selectedSeat) {
+            selectedSeat.classList.remove('selected');
+        }
+        
+        selectedSeat = this;
+        selectedSeat.classList.add('selected');
+        
+        // Cargar propiedades en el formulario
+        document.getElementById('seatRow').value = this.dataset.row;
+        document.getElementById('seatNumber').value = this.dataset.number;
+        document.getElementById('seatStatus').value = this.dataset.status;
+        
+        // Seleccionar la sección correcta
+        document.getElementById('section').value = this.dataset.sectionId;
+        
+        // Habilitar botón de eliminar
+        deleteSeatButton.disabled = false;
+    }
+    
+    // Deseleccionar al hacer clic en el mapa
+    seatMap.addEventListener('click', function(e) {
+        if (e.target === seatMap) {
+            if (selectedSeat) {
+                selectedSeat.classList.remove('selected');
+                selectedSeat = null;
+                deleteSeatButton.disabled = true;
+            }
+        }
+    });
+    
+    // Aplicar propiedades
+    applyPropertiesButton.addEventListener('click', function() {
+        if (!selectedSeat) return;
+        
+        const row = document.getElementById('seatRow').value;
+        const number = document.getElementById('seatNumber').value;
+        const status = document.getElementById('seatStatus').value;
+        const sectionId = document.getElementById('section').value;
+        const sectionColor = sectionSelect.options[sectionSelect.selectedIndex].dataset.color;
+        
+        selectedSeat.dataset.row = row;
+        selectedSeat.dataset.number = number;
+        selectedSeat.dataset.status = status;
+        selectedSeat.dataset.sectionId = sectionId;
+        selectedSeat.style.backgroundColor = sectionColor;
+        selectedSeat.innerHTML = `${row}-${number}`;
+    });
+    
+    // Eliminar asiento
+    deleteSeatButton.addEventListener('click', function() {
+        if (!selectedSeat) return;
+        
+        seatMap.removeChild(selectedSeat);
+        seats = seats.filter(seat => seat !== selectedSeat);
+        selectedSeat = null;
+        deleteSeatButton.disabled = true;
+    });
+    
+    // Funcionalidad de arrastrar
+    let isDragging = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    
+    function startDrag(e) {
+        e.preventDefault();
+        
+        // Seleccionar este asiento
+        if (selectedSeat !== this) {
+            if (selectedSeat) {
+                selectedSeat.classList.remove('selected');
+            }
+            selectedSeat = this;
+            selectedSeat.classList.add('selected');
+            deleteSeatButton.disabled = false;
+        }
+        
+        isDragging = true;
+        
+        // Calcular offset para mantener la posición relativa al cursor
+        const rect = this.getBoundingClientRect();
+        dragOffsetX = e.clientX - rect.left;
+        dragOffsetY = e.clientY - rect.top;
+        
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDrag);
+    }
+    
+    function drag(e) {
+        if (!isDragging || !selectedSeat) return;
+        
+        const mapRect = seatMap.getBoundingClientRect();
+        const x = e.clientX - mapRect.left - dragOffsetX;
+        const y = e.clientY - mapRect.top - dragOffsetY;
+        
+        // Limitar al área del mapa
+        const limitedX = Math.max(0, Math.min(x, mapRect.width - 30));
+        const limitedY = Math.max(0, Math.min(y, mapRect.height - 30));
+        
+        selectedSeat.style.left = `${limitedX}px`;
+        selectedSeat.style.top = `${limitedY}px`;
+    }
+    
+    function stopDrag() {
+        isDragging = false;
+        document.removeEventListener('mousemove', drag);
+        document.removeEventListener('mouseup', stopDrag);
+    }
+    
+    // Guardar mapa
+    saveMapButton.addEventListener('click', function() {
+        const seatData = [];
+        
+        seats.forEach(seat => {
+            // Obtener posición actual
+            const style = getComputedStyle(seat);
+            const x = parseInt(style.left);
+            const y = parseInt(style.top);
+            
+            seatData.push({
+                id: seat.dataset.id > 0 ? seat.dataset.id : null, // null para nuevos
+                section_id: seat.dataset.sectionId,
+                row: seat.dataset.row,
+                number: seat.dataset.number,
+                x: x,
+                y: y,
+                status: seat.dataset.status
+            });
+        });
+        
+        // Enviar al servidor
+        const formData = new FormData();
+        formData.append('seat_data', JSON.stringify(seatData));
+        formData.append('section_id', document.getElementById('section').value);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        fetch('{% url "seat_map_designer" venue.id %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Mapa guardado correctamente');
+                // Recargar para refrescar IDs
+                window.location.reload();
+            } else {
+                alert('Error al guardar el mapa');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error de conexión');
+        });
+    });
+    
+    // Modal de creación en bloque
+    const bulkCreateButton = document.getElementById('bulkCreate');
+    const bulkCreateModal = document.getElementById('bulkCreateModal');
+    const cancelBulkCreate = document.getElementById('cancelBulkCreate');
+    const createBulk = document.getElementById('createBulk');
+    
+    bulkCreateButton.addEventListener('click', function() {
+        bulkCreateModal.style.display = 'block';
+    });
+    
+    cancelBulkCreate.addEventListener('click', function() {
+        bulkCreateModal.style.display = 'none';
+    });
+    
+    // Cerrar modal al hacer clic fuera
+    bulkCreateModal.addEventListener('click', function(e) {
+        if (e.target === bulkCreateModal) {
+            bulkCreateModal.style.display = 'none';
+        }
+    });
+    
+    // Crear asientos en bloque
+    createBulk.addEventListener('click', function() {
+        const rowStart = document.getElementById('rowStart').value;
+        const rowCount = parseInt(document.getElementById('rowCount').value);
+        const seatsPerRow = parseInt(document.getElementById('seatsPerRow').value);
+        const horizontalGap = parseInt(document.getElementById('horizontalGap').value);
+        const verticalGap = parseInt(document.getElementById('verticalGap').value);
+        const startX = parseInt(document.getElementById('startX').value);
+        const startY = parseInt(document.getElementById('startY').value);
+        
+        const selectedSection = sectionSelect.options[sectionSelect.selectedIndex];
+        const sectionId = selectedSection.value;
+        const sectionColor = selectedSection.dataset.color;
+        
+        // Generar filas alfabéticamente (A, B, C...)
+        let rowChar = rowStart.charCodeAt(0);
+        
+        for (let r = 0; r < rowCount; r++) {
+            const row = String.fromCharCode(rowChar + r);
+            
+            for (let n = 1; n <= seatsPerRow; n++) {
+                const newSeat = {
+                    id: nextSeatId--,
+                    section__id: sectionId,
+                    row: row,
+                    number: n.toString(),
+                    x_position: startX + (n - 1) * horizontalGap,
+                    y_position: startY + r * verticalGap,
+                    status: 'available'
+                };
+                
+                createSeatElement(newSeat, sectionColor);
+            }
+        }
+        
+        bulkCreateModal.style.display = 'none';
+    });
+});
+</script>
+{% endblock %}

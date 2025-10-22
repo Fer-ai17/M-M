@@ -15,6 +15,16 @@
     <p class="stock">Disponibles: {{ events.stock }}</p>
     <p class="desc">{{ events.description }}</p>
 
+    {% if events.has_seat_map and events.venue %}
+    <div class="seat-map-button">
+        <a href="{% url 'seat_map' events.id %}" class="btn btn-primary">Seleccionar asientos</a>
+    </div>
+    {% else %}
+    <div class="add-to-cart">
+        <a href="{% url 'add_to_cart' events.id %}" class="btn btn-primary">Añadir al carrito</a>
+    </div>
+    {% endif %}
+
     {% if events.stock > 0 %}
       <a href="{% url 'add_to_cart' events.id %}" class="btn">Añadir al carrito</a>
     {% else %}

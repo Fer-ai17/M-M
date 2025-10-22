@@ -151,6 +151,53 @@ def reserve_seats(request, event_id):
     
     return JsonResponse({'success': True, 'redirect': reverse_lazy('cart_detail')})
 
+@staff_member_required
+def seat_map_designer(request, venue_id):
+    """Herramienta de diseño de mapas de asientos para administradores"""
+    venue = get_object_or_404(Venue, pk=venue_id)
+    
+    if request.method == "POST":
+        data = json.loads(request.POST.get('seat_data', '[]'))
+        section_id = request.POST.get('section_id')
+        section = get_object_or_404(Section, pk=section_id)
+        
+        # Crear o actualizar asientos
+        for seat_data in data:
+            seat_id = seat_data.get('id')
+            
+            seat_obj = None
+            if seat_id:
+                try:
+                    seat_obj = Seat.objects.get(id=seat_id)
+                except Seat.DoesNotExist:
+                    pass
+            if not seat_obj:
+                seat_obj = Seat(section=section)
+            
+            seat_obj.row = seat_data.get('row', 'A')
+            seat_obj.number = seat_data.get('number', '1')
+            seat_obj.x_position = seat_data.get('x', 0)
+            seat_obj.y_position = seat_data.get('y', 0)
+            seat_obj.status = seat_data.get('status', 'available')
+            seat_obj.save()
+            
+        return JsonResponse({'success': True})
+        
+    sections = venue.sections.all()
+    seats = Seat.objects.filter(section__venue=venue).values(
+        'id', 'section__id', 'row', 'number', 
+        'x_position', 'y_position', 'status'
+    )
+    
+    context = {
+        'venue': venue,
+        'sections': sections,
+        'seats_json': json.dumps(list(seats), cls=DjangoJSONEncoder)
+    }
+    return render(request, 'admin/seat_map_designer.html', context)
+
+
+
 #REGISTER - LOGIN - LOGOUT
 def register(request):
     if request.method == "POST":
@@ -193,13 +240,13 @@ def admin_dashboard(request):
     total_events = Events.objects.count()
     out_of_stock = Events.objects.filter(artist=0).count()
     total_orders = Tickets.objects.count()
-    # last_orders = Tickets.objects.order_by("-created_at")[:5]
-
+    venues = Venue.objects.all()
+    
     context = {
         "total_events": total_events,
         "out_of_stock": out_of_stock,
         "total_orders": total_orders,
-        # "last_orders": last_orders,
+        "venues": venues,
     }
     return render(request, "store/admin_dashboard.html", context)
 
@@ -317,8 +364,6 @@ def update_order_status(request, pk):
     return render(request, "store/update_order_status.html", {"order": order})
 
 
-
-
 def events_list(request):
     qs = Events.objects.select_related("location", "artist", "place").all()
 
@@ -372,15 +417,21 @@ def cart_detail(request):
     for item in cart:
         events = item['events']
         quantity = item['quantity']
+        seat_ids = item.get('seat_ids', [])
         
         price = events.price
-
         item_total = price * quantity
         total += item_total
+        
+        # Si hay asientos seleccionados, obtenerlos
+        seats = []
+        if seat_ids:
+            seats = Seat.objects.select_related('section').filter(id__in=seat_ids)
         
         cart_items.append({
             'events': events,
             'quantity': quantity,
+            'seats': seats,
             'price': format_price(price),
             'total': format_price(item_total),
         })
