@@ -91,6 +91,7 @@ class Events(models.Model):
     end_date = models.DateTimeField(blank=True, null=True)
     location = models.ForeignKey("Location", on_delete=models.CASCADE)
     artist = models.ForeignKey("Artist", on_delete=models.CASCADE)
+    place = models.ForeignKey("Municipality", on_delete=models.CASCADE, blank=True, null=True)
     label = models.CharField(max_length=20, choices=[
         ("proximamente", "Próximamente"),
         ("preventa", "Preventa"),
@@ -99,6 +100,8 @@ class Events(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.start_date} to {self.end_date}"
+
+    
 
     def total_price(self):
         return self.quantity * self.product.price

@@ -7,15 +7,10 @@
 <form method="get" class="filters" style="margin-bottom:1rem; display:flex; gap:8px; align-items:center;">
   <input type="search" name="q" placeholder="Buscar..." value="{{ q }}" style="flex:1;">
 
-  <button type="button" id="filter-toggle" aria-expanded="false" title="Filtros" style="background:none;border:0;cursor:pointer">
-    <!-- icono de filtro (SVG) -->
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-      <path d="M3 5h18M6 12h12M10 19h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  </button>
+  <a type="submit" id="filter-toggle" aria-expanded="false" title="Filtros" style="background:none;border:0;cursor:pointer">Filtrar por</button>
 
-  <button type="submit">Buscar</button>
-  <a href="{% url 'events_list' %}">Limpiar</a>
+  <a href="{% url 'search_events' %}">Buscar</a>
+
 </form>
 
 <div id="filter-panel" style="display:none; margin-bottom:1rem; padding:10px; border:1px solid #ddd; border-radius:4px;">
