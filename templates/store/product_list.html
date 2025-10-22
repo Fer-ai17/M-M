@@ -20,9 +20,7 @@
       Ubicación
       <select name="location">
         <option value="">Todas</option>
-        {% for loc in locations %}
-          <option value="{{ loc.name }}" {% if loc.name == location_q %}selected{% endif %}>{{ loc.name }}</option>
-        {% endfor %}
+          <option value="{{ place.name }}" {% if place.name == place_q %}selected{% endif %}>{{ place.name }}</option>
       </select>
     </label>
 

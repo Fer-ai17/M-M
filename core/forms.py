@@ -1,6 +1,48 @@
 from django import forms
-from .models import Events, Artist
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+from django.db import transaction
+from .models import Profile, Role, TypeDocument, Events, Artist
 
+
+class RegisterForm(UserCreationForm):
+    email = forms.EmailField(required=True)
+    name = forms.CharField(required=False)
+    lastname = forms.CharField(required=False)
+    document = forms.CharField(required=False)
+    typedocument = forms.ModelChoiceField(queryset=TypeDocument.objects.all(), required=False)
+    cellphone = forms.CharField(required=False)
+
+    class Meta:
+        model = User
+        fields = ("username", "email", "password1", "password2", "name", "lastname", "document", "typedocument", "cellphone")
+
+    @transaction.atomic
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.email = self.cleaned_data.get("email", "")
+        if commit:
+            user.save()
+            role = Role.objects.filter(name__iexact="comprador").first()
+            if not role:
+                role = Role.objects.create(name="COMPRADOR")
+            Profile.objects.create(
+                user=user,
+                name=self.cleaned_data.get("name", ""),
+                lastname=self.cleaned_data.get("lastname", ""),
+                role=role,
+                document=self.cleaned_data.get("document", ""),
+                typedocument=self.cleaned_data.get("typedocument"),
+                cellphone=self.cleaned_data.get("cellphone", ""),
+                email=user.email,
+            )
+        return user
+
+class EditForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ["name", "lastname", "document", "typedocument", "cellphone", "email"]
+        
 class EventsForm(forms.ModelForm):
     class Meta:
         model = Events

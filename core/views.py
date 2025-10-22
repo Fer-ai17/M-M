@@ -8,11 +8,49 @@ from django.contrib.auth import login
 from django.shortcuts import render, redirect
 from django.contrib.auth.views import LoginView
 from django.contrib.auth import logout
-from .forms import EventsForm, ArtistForm
+from .forms import EventsForm, ArtistForm, RegisterForm
 from django.urls import reverse_lazy
 from .utils import convert_currency as convert_currency, format_price
 from django.http import HttpResponseRedirect
 
+#REGISTER - LOGIN - LOGOUT
+
+def register(request):
+    if request.method == "POST":
+        form = RegisterForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)  # inicia sesión automáticamente
+            return redirect("events_list")  # o "home"
+    else:
+        form = RegisterForm()
+    return render(request, "registration/register.html", {"form": form})
+    
+class CustomLoginView(LoginView):
+    template_name = "registration/login.html"
+
+    def get_success_url(self):
+        if self.request.user.is_staff:
+            return reverse_lazy("admin_dashboard")
+        return reverse_lazy("events_list") 
+
+def custom_logout(request):
+    logout(request)
+    return redirect("events_list")
+
+#EDIT PROFILE
+@login_required
+def profile(request):
+    if request.method == "POST":
+        form = RegisterForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            return redirect("events_list")
+    else:
+        form = RegisterForm(instance=request.user)
+    return render(request, "registration/profile.html", {"form": form})
+
+#CURRENCY - ADMIN DASHBOARD - SEARCH
 
 def change_currency(request, code):
     """Cambia la moneda - solo permite COP y USD"""
@@ -50,19 +88,49 @@ def admin_dashboard_events(request):
     return render(request, "store/admin_dashboard_products.html")
 
 
-<<<<<<< HEAD
-=======
 def search_events(request):
     query = request.GET.get("q", "")
     events = Events.objects.filter(name__icontains=query) | Events.objects.filter(description__icontains=query)
     # Filtrar por ubicación
+    municipality_q = request.GET.get("place", "")
+    if municipality_q:
+        events = events.filter(municipality__name__icontains=municipality_q)
 
     return render(request, "store/product_list.html", {
         "events": events,
         "search_query": query,
     })
 
->>>>>>> fer
+#CRUD-Events
+
+@staff_member_required
+def create_events(request):
+    if not request.user.is_staff:  # solo admins o staff
+        return redirect("events_list")
+
+    if request.method == "POST":
+        form = EventsForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            return redirect("events_list")
+    else:
+        form = EventsForm()
+    return render(request, "store/create_product.html", {"form": form})
+
+@login_required
+def create_artist(request):
+    if not request.user.is_staff:  # solo admins o staff
+        return redirect("events_list")
+
+    if request.method == "POST":
+        form = ArtistForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            return redirect("events_list")
+    else:
+        form = ArtistForm()
+    return render(request, "store/create_product.html", {"form": form})
+
 @staff_member_required
 def edit_events(request, pk):
     events = get_object_or_404(Events, pk=pk)
@@ -75,18 +143,18 @@ def edit_events(request, pk):
         form = EventsForm(instance=events)
     return render(request, "store/edit_product.html", {"form": form, "events": events})
 
-
 @staff_member_required
 def delete_events(request, pk):
     events = get_object_or_404(Events, pk=pk)
     events.delete()
     return redirect("admin_dashboard")
 
+#LISTS - DETAILS - ORDERS
+
 @staff_member_required
 def bought_list(request):
     orders = Bought.objects.all().order_by("-created_at")
     return render(request, "store/order_list.html", {"orders": orders})
-
 
 @staff_member_required
 def bought_detail(request, pk):
@@ -140,11 +208,7 @@ def get_converted_cart_items(cart, currency):
     
     for item in cart:
         events = item['events']
-<<<<<<< HEAD
-        local_price = convert_currency_utils(events.price, "COP", currency)
-=======
         local_price = convert_currency_utils(events.price, "COP", currency) # type: ignore
->>>>>>> fer
         converted_items.append({
             'events': events,
             'quantity': item['quantity'],
@@ -155,93 +219,12 @@ def get_converted_cart_items(cart, currency):
     
     return converted_items
 
-def register(request):
-    if request.method == "POST":
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)  # inicia sesión automáticamente
-            return redirect("events_list")  # o "home"
-    else:
-        form = UserCreationForm()
-    return render(request, "registration/register.html", {"form": form})
-    
-class CustomLoginView(LoginView):
-    template_name = "registration/login.html"
-
-    def get_success_url(self):
-        if self.request.user.is_staff:
-            return reverse_lazy("admin_dashboard")
-        return reverse_lazy("events_list") 
-
-def custom_logout(request):
-    logout(request)
-    return redirect("events_list")
-
-@login_required
-def create_events(request):
-    if not request.user.is_staff:  # solo admins o staff
-        return redirect("events_list")
-
-    if request.method == "POST":
-        form = EventsForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            return redirect("events_list")
-    else:
-        form = EventsForm()
-    return render(request, "store/create_product.html", {"form": form})
-
-@login_required
-def create_artist(request):
-    if not request.user.is_staff:  # solo admins o staff
-        return redirect("events_list")
-
-    if request.method == "POST":
-        form = ArtistForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            return redirect("events_list")
-    else:
-        form = ArtistForm()
-    return render(request, "store/create_product.html", {"form": form})
-
 def events_list(request):
     # obtiene eventos con location para evitar consultas N+1
     events = Events.objects.select_related("location").all()
 
-<<<<<<< HEAD
-    # moneda válida: COP o USD (por defecto COP)
-    currency = request.session.get("currency", "COP")
-    if currency not in ["COP", "USD"]:
-        currency = "COP"
-        request.session["currency"] = currency
-
-    locale = "es_CO" if currency == "COP" else "en_US"
-
-    converted_events = []
-    for e in events:
-        base_price = e.location.price
-        if currency == "COP":
-            local_price = base_price
-        else:
-            # convert_currency(amount, from_currency, to_currency)
-            local_price = convert_currency(base_price, "COP", currency)
-
-        converted_events.append({
-            "obj": e,
-            "converted_price": format_price(local_price, currency, locale),
-            "currency": currency,
-            "base_price": format_price(base_price, "COP", "es_CO"),
-        })
-
-    return render(request, "store/product_list.html", {
-        "events": converted_events,
-        "current_currency": currency
-=======
     return render(request, "store/product_list.html", {
         "events": events
->>>>>>> fer
     })
 
 def add_to_cart(request, pk):

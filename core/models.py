@@ -1,31 +1,37 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 
-from blogsite import settings
 
-
-#Usuarios - Administrador
-class Profile(models.Model):
-    name = models.CharField(max_length=100)
-    role = models.ForeignKey("Role", on_delete=models.CASCADE)
-    document = models.CharField(max_length=10, blank= True),
-    type_document = models.CharField(max_length=30, blank=True)
-    email = models.TextField(blank=True)
-    password = models.ImageField(upload_to="avatars/", blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Profile de {self.user.username}"
-
-#Roles - Admin, Cliente 
 class Role(models.Model):
     name = models.CharField(max_length=50)
 
     def __str__(self):
         return self.name
 
+class TypeDocument(models.Model):
+    name = models.CharField(max_length=50)
 
-#Localidad - VIP, General, Preferencial
+    def __str__(self):
+        return self.name
+
+class Profile(models.Model):
+    user = models.OneToOneField("auth.User", on_delete=models.CASCADE, related_name="profile", null=True, blank=True)
+    name = models.CharField(max_length=100, blank=True)
+    lastname = models.CharField(max_length=100, blank=True)
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, null=True, blank=True)
+    document = models.CharField(max_length=10, blank=True)
+    typedocument = models.ForeignKey("TypeDocument", on_delete=models.CASCADE, null=True, blank=True)
+    email = models.EmailField(blank=True)
+    cellphone = models.CharField(max_length=15, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        if self.name or self.lastname:
+            return f"{self.name} {self.lastname}".strip()
+        return f"Profile #{self.pk}"
+
+
 class Location(models.Model):
     name = models.CharField(max_length=200)
     loc_code = models.CharField(max_length=50, unique=True)
@@ -35,16 +41,45 @@ class Location(models.Model):
 
     def __str__(self):
         return self.name
-    
+
+
+class Events(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    start_date = models.DateTimeField(blank=True, null=True)
+    end_date = models.DateTimeField(blank=True, null=True)
+    location = models.ForeignKey(Location, on_delete=models.CASCADE)
+    artist = models.ForeignKey("Artist", on_delete=models.CASCADE)
+    place = models.ForeignKey("Municipality", on_delete=models.CASCADE, blank=True, null=True)
+    label = models.CharField(
+        max_length=20,
+        choices=[
+            ("proximamente", "Próximamente"),
+            ("preventa", "Preventa"),
+            ("ninguno", "Ninguno"),
+        ],
+        default="ninguno",
+    )
+
+    def __str__(self):
+        return self.name
+
+    def total_price(self):
+        try:
+            return Decimal(self.location.price)
+        except Exception:
+            return Decimal("0.00")
+
+
 class Tickets(models.Model):
     quantity = models.PositiveIntegerField()
-    events = models.ForeignKey("Events", on_delete=models.CASCADE)
+    events = models.ForeignKey(Events, on_delete=models.CASCADE)
     purchase_date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.events.name} - {self.quantity}"
 
-#Compras
+
 class Bought(models.Model):
     STATUS_CHOICES = [
         ("pendiente", "Pendiente"),
@@ -52,56 +87,49 @@ class Bought(models.Model):
         ("completado", "Completado"),
     ]
 
-    profile = models.ForeignKey("Profile", on_delete=models.CASCADE)
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pendiente")
-    tickets = models.ForeignKey("Tickets", on_delete=models.CASCADE)
+    tickets = models.ForeignKey(Tickets, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Pedido #{self.id} - {self.customer_name}"
+        name = f"{self.profile.name} {self.profile.lastname}".strip() if self.profile else "Anónimo"
+        return f"Pedido #{self.pk} - {name}"
 
     def total(self):
-        return sum(item.total_price() for item in self.items.all())
-    
+        try:
+            unit_price = self.tickets.events.location.price
+            return Decimal(self.tickets.quantity) * Decimal(unit_price)
+        except Exception:
+            return Decimal("0.00")
 
-#Genero Musical
+
 class MusicalGender(models.Model):
     name = models.CharField(max_length=100)
 
-#Artistas
+    def __str__(self):
+        return self.name
+
+
 class Artist(models.Model):
     name = models.CharField(max_length=100)
     birth_city = models.CharField(max_length=100)
-    musical_gender = models.ForeignKey("MusicalGender", on_delete=models.CASCADE)
+    musical_gender = models.ForeignKey(MusicalGender, on_delete=models.CASCADE)
 
-#Departamento
+    def __str__(self):
+        return self.name
+
+
 class Department(models.Model):
     name = models.CharField(max_length=100)
 
-#Municipio
+    def __str__(self):
+        return self.name
+
+
 class Municipality(models.Model):
     name = models.CharField(max_length=100)
-    department = models.ForeignKey("Department", on_delete=models.CASCADE)
-
-#Eventos
-class Events(models.Model):
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-    start_date = models.DateTimeField(blank=True, null=True)
-    end_date = models.DateTimeField(blank=True, null=True)
-    location = models.ForeignKey("Location", on_delete=models.CASCADE)
-    artist = models.ForeignKey("Artist", on_delete=models.CASCADE)
-    place = models.ForeignKey("Municipality", on_delete=models.CASCADE, blank=True, null=True)
-    label = models.CharField(max_length=20, choices=[
-        ("proximamente", "Próximamente"),
-        ("preventa", "Preventa"),
-        ("ninguno", "Ninguno"),
-    ], default="ninguno")
+    department = models.ForeignKey(Department, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"{self.name} - {self.start_date} to {self.end_date}"
-
-    
-
-    def total_price(self):
-        return self.quantity * self.product.price
+        return self.name
