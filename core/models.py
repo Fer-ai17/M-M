@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
 from blogsite import settings
 
@@ -31,14 +31,11 @@ class Location(models.Model):
     loc_code = models.CharField(max_length=50, unique=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.PositiveIntegerField(default=0)
-<<<<<<< HEAD
     label = models.CharField(max_length=20, choices=[
         ("nuevo", "Nuevo"),
         ("preventa", "Preventa"),
         ("ninguno", "Ninguno"),
     ], default="ninguno")
-=======
->>>>>>> fer
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -78,9 +75,12 @@ class MusicalGender(models.Model):
 
 #Artistas
 class Artist(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=200)
     birth_city = models.CharField(max_length=100)
     musical_gender = models.ForeignKey("MusicalGender", on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.name
 
 #Departamento
 class Department(models.Model):
@@ -99,17 +99,41 @@ class Events(models.Model):
     end_date = models.DateTimeField(blank=True, null=True)
     location = models.ForeignKey("Location", on_delete=models.CASCADE)
     artist = models.ForeignKey("Artist", on_delete=models.CASCADE)
-<<<<<<< HEAD
-=======
     label = models.CharField(max_length=20, choices=[
         ("proximamente", "Próximamente"),
         ("preventa", "Preventa"),
         ("ninguno", "Ninguno"),
     ], default="ninguno")
->>>>>>> fer
 
     def __str__(self):
         return f"{self.name} - {self.start_date} to {self.end_date}"
 
     def total_price(self):
         return self.quantity * self.product.price
+
+#Eventos con artistas
+class EventArtist(models.Model):
+    artist = models.ForeignKey(Artist, on_delete=models.CASCADE)
+    event = models.ForeignKey("Events", on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('artist', 'event')
+
+    def clean(self):
+        # validar que no existan eventos con la misma fecha para el artista
+        overlapping = Events.objects.filter(
+            artist=self.artist
+        ).exclude(pk=self.event.pk).filter(
+            start_date__lt=self.event.end_date,
+            end_date__gt=self.event.start_date
+        )
+        if overlapping.exists():
+            first = overlapping.first()
+            raise ValidationError(
+                f"El artista '{self.artist}' ya participa en '{first.name}' "
+                f"({first.start_date} — {first.end_date}) que se solapa con este evento."
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)

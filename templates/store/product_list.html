@@ -1,84 +1,97 @@
-{% extends "base.html" %}
+{% extends "base_admin.html" %}
 {% block title %}Tienda{% endblock %}
 
 {% block content %}
-<h1>Nuestros Eventos</h1>
+<div class="admin-page container">
+  <header class="admin-header d-flex align-items-center justify-content-between mb-3">
+    <h1 class="admin-title">Nuestros Eventos</h1>
 
-<form method="get" class="filters" style="margin-bottom:1rem; display:flex; gap:8px; align-items:center;">
-  <input type="search" name="q" placeholder="Buscar..." value="{{ q }}" style="flex:1;">
+    <form method="get" class="admin-search d-flex align-items-center" role="search">
+      <input type="search" name="q" placeholder="Buscar..." value="{{ q }}" class="form-control form-control-sm me-2">
+      <button type="button" id="filter-toggle" class="btn btn-icon btn-sm" aria-expanded="false" title="Filtros">
+        <!-- icono de filtro (SVG) -->
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 5h18M6 12h12M10 19h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <button type="submit" class="btn btn-primary btn-sm ms-2">Buscar</button>
+      <a class="btn btn-link btn-sm ms-2" href="{% url 'events_list' %}">Limpiar</a>
+    </form>
+  </header>
 
-  <button type="button" id="filter-toggle" aria-expanded="false" title="Filtros" style="background:none;border:0;cursor:pointer">
-    <!-- icono de filtro (SVG) -->
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-      <path d="M3 5h18M6 12h12M10 19h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  </button>
+  <div id="filter-panel" class="admin-filters card mb-3" style="display:none;">
+    <div class="card-body">
+      <form id="filters-form" method="get" class="d-flex flex-wrap gap-2 align-items-center">
+        <input type="hidden" name="q" value="{{ q }}">
+        <label class="form-label me-2 mb-0">
+          Ubicación
+          <select name="location" class="form-select form-select-sm">
+            <option value="">Todas</option>
+            {% for loc in locations %}
+              <option value="{{ loc.name }}" {% if loc.name == location_q %}selected{% endif %}>{{ loc.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
 
-  <button type="submit">Buscar</button>
-  <a href="{% url 'events_list' %}">Limpiar</a>
-</form>
+        <label class="form-label me-2 mb-0">
+          Tipo
+          <select name="label" class="form-select form-select-sm">
+            <option value="">Todas</option>
+            <option value="proximamente" {% if label == "proximamente" %}selected{% endif %}>Próximamente</option>
+            <option value="preventa" {% if label == "preventa" %}selected{% endif %}>Preventa</option>
+            <option value="ninguno" {% if label == "ninguno" %}selected{% endif %}>Ninguno</option>
+          </select>
+        </label>
 
-<div id="filter-panel" style="display:none; margin-bottom:1rem; padding:10px; border:1px solid #ddd; border-radius:4px;">
-  <form id="filters-form" method="get" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-    <input type="hidden" name="q" value="{{ q }}">
-    <label>
-      Ubicación
-      <select name="location">
-        <option value="">Todas</option>
-        {% for loc in locations %}
-          <option value="{{ loc.name }}" {% if loc.name == location_q %}selected{% endif %}>{{ loc.name }}</option>
-        {% endfor %}
-      </select>
-    </label>
-
-    <label>
-      Tipo
-      <select name="label">
-        <option value="">Todas</option>
-        <option value="proximamente" {% if label == "proximamente" %}selected{% endif %}>Próximamente</option>
-        <option value="preventa" {% if label == "preventa" %}selected{% endif %}>Preventa</option>
-        <option value="ninguno" {% if label == "ninguno" %}selected{% endif %}>Ninguno</option>
-      </select>
-    </label>
-
-    <div style="display:flex; gap:8px; align-items:center;">
-      <button type="submit">Aplicar</button>
-      <a href="{% url 'events_list' %}">Restablecer</a>
+        <div class="d-flex gap-2 align-items-center ms-auto">
+          <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
+          <a class="btn btn-secondary btn-sm" href="{% url 'events_list' %}">Restablecer</a>
+        </div>
+      </form>
     </div>
-  </form>
-</div>
+  </div>
 
-<div class="product-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px;">
-  {% for event in events %}
-    <div class="product-card" style="border:1px solid #eee; padding:10px; border-radius:6px;">
-      {% if event.location and event.location.label != "ninguno" %}
-        <span class="badge" style="background:#f2f2f2; padding:2px 6px; border-radius:3px;">{{ event.location.label }}</span>
-      {% endif %}
+  <div class="admin-grid row g-3">
+    {% for event in events %}
+      <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+        <article class="card h-100">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h3 class="h6 mb-0">
+                <a class="stretched-link text-decoration-none" href="{% url 'events_detail' event.pk %}">{{ event.name }}</a>
+              </h3>
+              {% if event.location and event.location.label != "ninguno" %}
+                <span class="badge bg-light text-dark">{{ event.location.label }}</span>
+              {% endif %}
+            </div>
 
-      <div class="product-info">
-        <h3 style="margin:8px 0;">
-          <a href="{% url 'events_detail' event.pk %}">{{ event.name }}</a>
-        </h3>
+            <p class="price fw-semibold mb-1">
+              {% with price=event.price|default:event.location.price %}
+                {{ price }} COP
+              {% endwith %}
+            </p>
 
-        <p class="price" style="font-weight:600;">
-          {% with price=event.price|default:event.location.price %}
-            {{ price }} COP
-          {% endwith %}
-        </p>
+            <p class="text-muted small mb-2">{{ event.description|default:"Sin descripción"|truncatechars:80 }}</p>
+            <p class="small text-muted mb-3">Disponibles: {{ event.location.stock|default:"N/D" }}</p>
 
-        <p class="desc" style="color:#555;">{{ event.description|default:"Sin descripción"|truncatechars:80 }}</p>
-        <p class="stock" style="font-size:0.9rem; color:#333;">Disponibles: {{ event.location.stock|default:"N/D" }}</p>
-
-        {% if event.location.stock|default:0 > 0 %}
-          <a href="{% url 'add_to_cart' event.pk %}" class="btn" style="display:inline-block;margin-top:8px;padding:6px 10px;background:#007bff;color:#fff;border-radius:4px;text-decoration:none;">Añadir al carrito</a>
-        {% else %}
-          <p class="out-of-stock" style="color:#cc0000;margin-top:8px;">Agotado</p>
-        {% endif %}
+            <div class="mt-auto">
+              {% if event.location.stock|default:0 > 0 %}
+                <a href="{% url 'add_to_cart' event.pk %}" class="btn btn-primary btn-sm w-100">Añadir al carrito</a>
+              {% else %}
+                <div class="text-danger text-center small">Agotado</div>
+              {% endif %}
+            </div>
+          </div>
+        </article>
       </div>
-    </div>
-  {% empty %}
-    <p>No hay eventos que coincidan con la búsqueda.</p>
-  {% endfor %}
+    {% empty %}
+      <div class="col-12">
+        <div class="card p-3">
+          <p class="mb-0">No hay eventos que coincidan con la búsqueda.</p>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
 </div>
 
 <script>
@@ -87,11 +100,10 @@
     const panel = document.getElementById('filter-panel');
     if (!toggle || !panel) return;
     toggle.addEventListener('click', function(){
-      const open = panel.style.display !== 'none';
-      panel.style.display = open ? 'none' : 'block';
-      toggle.setAttribute('aria-expanded', String(!open));
+      const isOpen = panel.style.display !== 'none';
+      panel.style.display = isOpen ? 'none' : 'block';
+      toggle.setAttribute('aria-expanded', String(!isOpen));
     });
-    // si hay filtros seleccionados, abrir el panel por defecto
     const shouldOpen = "{{ location_q|default:'' }}".trim() || "{{ label|default:'' }}".trim() || "{{ min_price|default:'' }}".trim() || "{{ max_price|default:'' }}".trim() || "{{ sort|default:'' }}".trim();
     if (shouldOpen) {
       panel.style.display = 'block';

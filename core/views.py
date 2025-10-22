@@ -12,6 +12,10 @@ from .forms import EventsForm, ArtistForm
 from django.urls import reverse_lazy
 from .utils import convert_currency as convert_currency, format_price
 from django.http import HttpResponseRedirect
+from django.core.exceptions import ValidationError
+from .utils import convert_currency as convert_currency_utils
+from .forms import ArtistForm
+from .forms import EventArtist
 
 
 def change_currency(request, code):
@@ -50,8 +54,6 @@ def admin_dashboard_events(request):
     return render(request, "store/admin_dashboard_products.html")
 
 
-<<<<<<< HEAD
-=======
 def search_events(request):
     query = request.GET.get("q", "")
     events = Events.objects.filter(name__icontains=query) | Events.objects.filter(description__icontains=query)
@@ -61,7 +63,6 @@ def search_events(request):
         "search_query": query,
     })
 
->>>>>>> fer
 @staff_member_required
 def edit_events(request, pk):
     events = get_object_or_404(Events, pk=pk)
@@ -139,11 +140,8 @@ def get_converted_cart_items(cart, currency):
     
     for item in cart:
         events = item['events']
-<<<<<<< HEAD
         local_price = convert_currency_utils(events.price, "COP", currency)
-=======
         local_price = convert_currency_utils(events.price, "COP", currency) # type: ignore
->>>>>>> fer
         converted_items.append({
             'events': events,
             'quantity': item['quantity'],
@@ -199,17 +197,31 @@ def create_artist(request):
     if request.method == "POST":
         form = ArtistForm(request.POST, request.FILES)
         if form.is_valid():
-            form.save()
-            return redirect("events_list")
+            artist = form.save(commit=False)
+            artist.save()
+            events = form.cleaned_data.get("events")
+            errors = []
+            for ev in events:
+                link = EventArtist(artist=artist, event=ev)
+                try:
+                    link.full_clean()
+                    link.save()
+                except ValidationError as e:
+                    errors.extend(e.messages)
+            if errors:
+                artist.delete()
+                form.add_error(None,errors)
+            else:
+                artist.save()
+                return redirect("artist_list")
     else:
         form = ArtistForm()
-    return render(request, "store/create_product.html", {"form": form})
+    return render(request, "store/create_artist.html", {"form": form})
 
 def events_list(request):
     # obtiene eventos con location para evitar consultas N+1
     events = Events.objects.select_related("location").all()
 
-<<<<<<< HEAD
     # moneda válida: COP o USD (por defecto COP)
     currency = request.session.get("currency", "COP")
     if currency not in ["COP", "USD"]:
@@ -237,10 +249,6 @@ def events_list(request):
     return render(request, "store/product_list.html", {
         "events": converted_events,
         "current_currency": currency
-=======
-    return render(request, "store/product_list.html", {
-        "events": events
->>>>>>> fer
     })
 
 def add_to_cart(request, pk):
