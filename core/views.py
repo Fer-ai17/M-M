@@ -269,7 +269,7 @@ def add_to_cart(request, pk):
     cart = Cart(request)
     events = get_object_or_404(Events, pk=pk)
 
-    # cantidad a añadir (si el form envía quantity, úsala)
+    # cantidad a añadir
     try:
         add_qty = int(request.POST.get("quantity", 1)) if request.method == "POST" else 1
     except Exception:
