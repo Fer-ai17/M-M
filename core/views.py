@@ -354,6 +354,8 @@ def delete_events(request, pk):
     return redirect("admin_dashboard")
 
 #LISTS - DETAILS - ORDERS
+
+
 @login_required
 def bought(request):
     orders = Bought.objects.all().order_by("-created_at")
