@@ -132,7 +132,24 @@ def reserve_seats(request, event_id):
         status='reserved',
         reserved_by=reservation_session_id
     )
- 
+    
+    if not seats:
+        return JsonResponse({'success': False, 'message': 'No hay asientos seleccionados'})
+    
+    # Añadir al carrito (simplificado - necesitarás adaptar a tu lógica de carrito)
+    cart = Cart(request)
+    
+    # Guardar IDs de asientos en el item del carrito
+    seat_ids = list(seats.values_list('id', flat=True))
+    cart.add(event, seat_ids=seat_ids)
+    
+    # Actualizar estado de los asientos
+    seats.update(status='sold')
+    
+    # Crear nueva sesión para futuras reservas
+    request.session['reservation_session_id'] = str(uuid.uuid4())
+    
+    return JsonResponse({'success': True, 'redirect': reverse_lazy('cart_detail')})
 
 #REGISTER - LOGIN - LOGOUT
 def register(request):
