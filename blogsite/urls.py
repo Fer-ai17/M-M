@@ -10,6 +10,8 @@ urlpatterns = [
 
     path("dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("dashboard/products/", views.admin_dashboard_events, name="admin_dashboard_products"),
+    
+    path("index/", views.index, name="index"),
 
     path("products/new/", views.create_events, name="create_events"),
     path("products/<int:pk>/edit/", views.edit_events, name="edit_events"),

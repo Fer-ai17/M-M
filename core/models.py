@@ -3,6 +3,20 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from blogsite import settings
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+
+
+class CustomUser(AbstractUser):
+    ROLE_CHOICES = [
+        ('admin', 'Administrador'),
+        ('user', 'Usuario'),
+    ]
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
+
+    def is_admin(self):
+        return self.role == 'admin'
+
 
 
 #Usuarios - Administrador
@@ -113,27 +127,28 @@ class Municipality(models.Model):
 
 #Eventos con artistas
 class EventArtist(models.Model):
-    artist = models.ForeignKey(Artist, on_delete=models.CASCADE)
+    artist = models.ForeignKey("Artist", on_delete=models.CASCADE)
     event = models.ForeignKey("Events", on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ('artist', 'event')
 
     def clean(self):
-        # validar que no existan eventos con la misma fecha para el artista
+        # Validar que el artista no esté en otro evento con fechas superpuestas
         overlapping = Events.objects.filter(
-            artist=self.artist
+            artists=self.artist
         ).exclude(pk=self.event.pk).filter(
-            start_date__lt=self.event.end_date,
-            end_date__gt=self.event.start_date
+            start__lt=self.event.end,
+            end__gt=self.event.start
         )
         if overlapping.exists():
             first = overlapping.first()
             raise ValidationError(
                 f"El artista '{self.artist}' ya participa en '{first.name}' "
-                f"({first.start_date} — {first.end_date}) que queda con este evento."
+                f"({first.start} — {first.end}), que se superpone con este evento."
             )
 
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+

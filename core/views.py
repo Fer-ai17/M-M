@@ -58,6 +58,9 @@ def admin_dashboard_events(request):
     return render(request, "store/admin_dashboard_products.html")
 
 
+def index(request):
+    return render(request, "store/index.html")
+
 def search_events(request):
     query = request.GET.get("q", "")
     events = Events.objects.filter(name__icontains=query) | Events.objects.filter(description__icontains=query)
