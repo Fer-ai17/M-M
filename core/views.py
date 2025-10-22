@@ -152,51 +152,89 @@ def reserve_seats(request, event_id):
     return JsonResponse({'success': True, 'redirect': reverse_lazy('cart_detail')})
 
 @staff_member_required
-def seat_map_designer(request, venue_id):
-    """Herramienta de diseño de mapas de asientos para administradores"""
-    venue = get_object_or_404(Venue, pk=venue_id)
+def seat_map_designer(request, section_id):
+    """Herramienta de diseño de asientos para una sección específica"""
+    section = get_object_or_404(Section, pk=section_id)
+    venue = section.venue
     
     if request.method == "POST":
         data = json.loads(request.POST.get('seat_data', '[]'))
-        section_id = request.POST.get('section_id')
-        section = get_object_or_404(Section, pk=section_id)
         
         # Crear o actualizar asientos
         for seat_data in data:
             seat_id = seat_data.get('id')
             
             seat_obj = None
-            if seat_id:
+            if seat_id and int(seat_id) > 0:  # Convertir a int para comparación
                 try:
                     seat_obj = Seat.objects.get(id=seat_id)
                 except Seat.DoesNotExist:
                     pass
+            
             if not seat_obj:
                 seat_obj = Seat(section=section)
             
             seat_obj.row = seat_data.get('row', 'A')
             seat_obj.number = seat_data.get('number', '1')
-            seat_obj.x_position = seat_data.get('x', 0)
-            seat_obj.y_position = seat_data.get('y', 0)
+            seat_obj.x_position = seat_data.get('x_position', seat_data.get('x', 0))  # Manejar ambos nombres
+            seat_obj.y_position = seat_data.get('y_position', seat_data.get('y', 0))  # Manejar ambos nombres
             seat_obj.status = seat_data.get('status', 'available')
             seat_obj.save()
             
         return JsonResponse({'success': True})
-        
-    sections = venue.sections.all()
-    seats = Seat.objects.filter(section__venue=venue).values(
-        'id', 'section__id', 'row', 'number', 
-        'x_position', 'y_position', 'status'
+    
+    # Obtener asientos de esta sección
+    seats = Seat.objects.filter(section=section).values(
+        'id', 'row', 'number', 'x_position', 'y_position', 'status'
     )
     
     context = {
+        'section': section,
         'venue': venue,
-        'sections': sections,
         'seats_json': json.dumps(list(seats), cls=DjangoJSONEncoder)
     }
     return render(request, 'admin/seat_map_designer.html', context)
 
-
+@staff_member_required
+def venue_designer(request, venue_id):
+    """Herramienta para diseñar la estructura del venue (secciones)"""
+    venue = get_object_or_404(Venue, pk=venue_id)
+    
+    if request.method == "POST":
+        data = json.loads(request.POST.get('section_data', '[]'))
+        
+        # Actualizar secciones existentes o crear nuevas
+        for section_data in data:
+            section_id = section_data.get('id')
+            
+            if section_id and section_id > 0:
+                # Actualizar sección existente
+                section = Section.objects.get(id=section_id)
+            else:
+                # Crear nueva sección
+                section = Section(venue=venue)
+            
+            section.name = section_data.get('name', 'Nueva Sección')
+            section.price = section_data.get('price', 0)
+            section.color = section_data.get('color', '#CCCCCC')
+            section.x_position = section_data.get('x', 0)
+            section.y_position = section_data.get('y', 0)
+            section.width = section_data.get('width', 200)
+            section.height = section_data.get('height', 150)
+            section.save()
+        
+        return JsonResponse({'success': True})
+    
+    sections = Section.objects.filter(venue=venue).values(
+        'id', 'name', 'price', 'color', 
+        'x_position', 'y_position', 'width', 'height'
+    )
+    
+    context = {
+        'venue': venue,
+        'sections_json': json.dumps(list(sections), cls=DjangoJSONEncoder)
+    }
+    return render(request, 'store/venue_designer.html', context)
 
 #REGISTER - LOGIN - LOGOUT
 def register(request):

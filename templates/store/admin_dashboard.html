@@ -54,12 +54,12 @@
     
     <!-- Lista de venues con enlace al diseñador -->
     <div class="venue-list">
-        <h4>Lugares con mapas disponibles:</h4>
+        <h4>Lugares disponibles:</h4>
         <ul>
             {% for venue in venues %}
             <li>
                 {{ venue.name }}
-                <a href="{% url 'seat_map_designer' venue.id %}" class="btn btn-sm">Diseñar mapa</a>
+                <a href="{% url 'venue_designer' venue.id %}" class="btn btn-sm">Diseñar Secciones</a>
             </li>
             {% endfor %}
         </ul>

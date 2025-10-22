@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<h1>Diseñador de Sección: {{ venue.name }}</h1>
+
+<div class="design-container">
+    <div class="design-tools">
+        <h2>Herramientas</h2>
+        
+        <div class="action-buttons">
+            <button id="addSection">Nueva Sección</button>
+            <button id="deleteSection" disabled>Eliminar</button>
+        </div>
+        
+        <div class="section-form" id="sectionForm">
+            <h3>Propiedades de la Sección</h3>
+            <div class="form-group">
+                <label for="sectionName">Nombre:</label>
+                <input type="text" id="sectionName" value="Nueva Sección">
+            </div>
+            <div class="form-group">
+                <label for="sectionPrice">Precio ($):</label>
+                <input type="number" id="sectionPrice" value="0" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+                <label for="sectionColor">Color:</label>
+                <input type="color" id="sectionColor" value="#CCCCCC">
+            </div>
+            <button id="applyProperties">Aplicar</button>
+        </div>
+        
+        <div class="venue-tools" style="margin-top: 20px;">
+            <button id="saveVenue">Guardar Diseño</button>
+            <div style="margin-top: 15px;">
+                <a href="{% url 'admin:core_venue_changelist' %}" class="button">Volver</a>
+            </div>
+            <div style="margin-top: 15px;">
+                {% for section in venue.sections.all %}
+                <div style="margin-bottom: 8px;">
+                    <a href="{% url 'seat_map_designer' section.id %}" class="button">
+                        Diseñar Asientos: {{ section.name }}
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="venue-map" id="venueMap">
+        <!-- Stage/escenario -->
+        <div style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px; width: 300px; text-align: center;">
+            ESCENARIO
+        </div>
+        <!-- Las secciones se cargarán dinámicamente -->
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const venueMap = document.getElementById('venueMap');
+    const sectionForm = document.getElementById('sectionForm');
+    const addSectionButton = document.getElementById('addSection');
+    const deleteSectionButton = document.getElementById('deleteSection');
+    const applyPropertiesButton = document.getElementById('applyProperties');
+    const saveVenueButton = document.getElementById('saveVenue');
+    
+    // Variables de estado
+    let sections = [];
+    let selectedSection = null;
+    let nextSectionId = -1; // IDs temporales para nuevas secciones
+    
+    // Cargar secciones existentes
+    const existingSections = {{ sections_json|safe }} || [];
+    
+    existingSections.forEach(section => {
+        createSectionElement(section);
+    });
+    
+    // Añadir nueva sección
+    addSectionButton.addEventListener('click', function() {
+        const newSection = {
+            id: nextSectionId--,
+            name: document.getElementById('sectionName').value,
+            price: parseFloat(document.getElementById('sectionPrice').value),
+            color: document.getElementById('sectionColor').value,
+            x: 100,
+            y: 100,
+            width: 200,
+            height: 150
+        };
+        
+        createSectionElement(newSection);
+    });
+    
+    // Crear elemento de sección y añadirlo al mapa
+    function createSectionElement(section) {
+        const sectionEl = document.createElement('div');
+        sectionEl.className = 'section-block';
+        sectionEl.id = `section-${section.id}`;
+        sectionEl.dataset.id = section.id;
+        
+        // Título de la sección
+        const titleEl = document.createElement('div');
+        titleEl.className = 'section-title';
+        titleEl.textContent = `${section.name} - $${section.price}`;
+        sectionEl.appendChild(titleEl);
+        
+        // Handle de redimensión
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'section-resize';
+        sectionEl.appendChild(resizeHandle);
+        
+        // Posicionar y dimensionar
+        sectionEl.style.left = `${section.x_position || section.x}px`;
+        sectionEl.style.top = `${section.y_position || section.y}px`;
+        sectionEl.style.width = `${section.width}px`;
+        sectionEl.style.height = `${section.height}px`;
+        sectionEl.style.backgroundColor = section.color;
+        
+        // Eventos
+        sectionEl.addEventListener('mousedown', startDrag);
+        sectionEl.addEventListener('click', selectSection);
+        resizeHandle.addEventListener('mousedown', startResize);
+        
+        venueMap.appendChild(sectionEl);
+        sections.push(sectionEl);
+        
+        return sectionEl;
+    }
+    
+    // Seleccionar sección
+    function selectSection(e) {
+        e.stopPropagation();
+        
+        if (selectedSection) {
+            selectedSection.classList.remove('selected');
+        }
+        
+        selectedSection = this;
+        selectedSection.classList.add('selected');
+        
+        // Cargar propiedades en el formulario
+        document.getElementById('sectionName').value = this.querySelector('.section-title').textContent.split(' - $')[0];
+        document.getElementById('sectionPrice').value = this.querySelector('.section-title').textContent.split(' - $')[1];
+        document.getElementById('sectionColor').value = getComputedStyle(this).backgroundColor.match(/\d+/g).slice(0, 3).map(x => {
+            const hex = parseInt(x).toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        }).join('');
+        
+        // Habilitar botón de eliminar
+        deleteSectionButton.disabled = false;
+    }
+    
+    // Deseleccionar al hacer clic en el mapa
+    venueMap.addEventListener('click', function(e) {
+        if (e.target === venueMap) {
+            if (selectedSection) {
+                selectedSection.classList.remove('selected');
+                selectedSection = null;
+                deleteSectionButton.disabled = true;
+            }
+        }
+    });
+    
+    // Aplicar propiedades
+    applyPropertiesButton.addEventListener('click', function() {
+        if (!selectedSection) return;
+        
+        const name = document.getElementById('sectionName').value;
+        const price = document.getElementById('sectionPrice').value;
+        const color = document.getElementById('sectionColor').value;
+        
+        selectedSection.querySelector('.section-title').textContent = `${name} - $${price}`;
+        selectedSection.style.backgroundColor = color;
+    });
+    
+    // Eliminar sección
+    deleteSectionButton.addEventListener('click', function() {
+        if (!selectedSection) return;
+        
+        venueMap.removeChild(selectedSection);
+        sections = sections.filter(section => section !== selectedSection);
+        selectedSection = null;
+        deleteSectionButton.disabled = true;
+    });
+    
+    // Funcionalidad de arrastrar
+    let isDragging = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    
+    function startDrag(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Seleccionar esta sección
+        if (selectedSection !== this) {
+            if (selectedSection) {
+                selectedSection.classList.remove('selected');
+            }
+            selectedSection = this;
+            selectedSection.classList.add('selected');
+            deleteSectionButton.disabled = false;
+        }
+        
+        isDragging = true;
+        
+        // Calcular offset para mantener la posición relativa al cursor
+        const rect = this.getBoundingClientRect();
+        dragOffsetX = e.clientX - rect.left;
+        dragOffsetY = e.clientY - rect.top;
+        
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDrag);
+    }
+    
+    function drag(e) {
+        if (!isDragging || !selectedSection) return;
+        
+        const mapRect = venueMap.getBoundingClientRect();
+        const x = e.clientX - mapRect.left - dragOffsetX;
+        const y = e.clientY - mapRect.top - dragOffsetY;
+        
+        // Limitar al área del mapa
+        const limitedX = Math.max(0, Math.min(x, mapRect.width - parseInt(selectedSection.style.width)));
+        const limitedY = Math.max(0, Math.min(y, mapRect.height - parseInt(selectedSection.style.height)));
+        
+        selectedSection.style.left = `${limitedX}px`;
+        selectedSection.style.top = `${limitedY}px`;
+    }
+    
+    function stopDrag() {
+        isDragging = false;
+        document.removeEventListener('mousemove', drag);
+        document.removeEventListener('mouseup', stopDrag);
+    }
+    
+    // Funcionalidad de redimensionar
+    let isResizing = false;
+    let initialWidth, initialHeight, initialX, initialY;
+    
+    function startResize(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        isResizing = true;
+        
+        // Obtener dimensiones iniciales
+        initialWidth = parseInt(selectedSection.style.width);
+        initialHeight = parseInt(selectedSection.style.height);
+        initialX = e.clientX;
+        initialY = e.clientY;
+        
+        document.addEventListener('mousemove', resize);
+        document.addEventListener('mouseup', stopResize);
+    }
+    
+    function resize(e) {
+        if (!isResizing || !selectedSection) return;
+        
+        // Calcular nuevas dimensiones
+        const deltaX = e.clientX - initialX;
+        const deltaY = e.clientY - initialY;
+        
+        const newWidth = Math.max(50, initialWidth + deltaX);
+        const newHeight = Math.max(50, initialHeight + deltaY);
+        
+        selectedSection.style.width = `${newWidth}px`;
+        selectedSection.style.height = `${newHeight}px`;
+    }
+    
+    function stopResize() {
+        isResizing = false;
+        document.removeEventListener('mousemove', resize);
+        document.removeEventListener('mouseup', stopResize);
+    }
+    
+    // Guardar diseño del venue
+    saveVenueButton.addEventListener('click', function() {
+        const sectionData = [];
+        
+        sections.forEach(section => {
+            // Obtener posición y dimensiones actuales
+            const style = getComputedStyle(section);
+            const left = parseInt(style.left);
+            const top = parseInt(style.top);
+            const width = parseInt(style.width);
+            const height = parseInt(style.height);
+            
+            // Obtener propiedades
+            const titleText = section.querySelector('.section-title').textContent;
+            const name = titleText.split(' - $')[0];
+            const price = parseFloat(titleText.split(' - $')[1]);
+            const color = style.backgroundColor;
+            
+            sectionData.push({
+                id: section.dataset.id,
+                name: name,
+                price: price,
+                color: rgbToHex(color),
+                x: left,
+                y: top,
+                width: width,
+                height: height
+            });
+        });
+        
+        // Enviar al servidor
+        const formData = new FormData();
+        formData.append('section_data', JSON.stringify(sectionData));
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        fetch('{% url "venue_designer" venue.id %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Diseño guardado correctamente');
+                // Recargar para refrescar IDs
+                window.location.reload();
+            } else {
+                alert('Error al guardar el diseño');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error de conexión');
+        });
+    });
+    
+    // Helper para convertir RGB a HEX
+    function rgbToHex(rgb) {
+        if (!rgb) return '#CCCCCC';
+        
+        // Formato "rgb(r, g, b)" o "rgba(r, g, b, a)"
+        const matches = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*\d+\.\d+)?\)$/i);
+        if (!matches) return '#CCCCCC';
+        
+        function toHex(x) {
+            const hex = parseInt(x).toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        }
+        
+        return '#' + toHex(matches[1]) + toHex(matches[2]) + toHex(matches[3]);
+    }
+});
+</script>
+{% endblock %}

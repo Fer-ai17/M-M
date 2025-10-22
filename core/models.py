@@ -152,6 +152,10 @@ class Section(models.Model):
     name = models.CharField(max_length=50)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     color = models.CharField(max_length=7, help_text="Color en formato HEX (#RRGGBB)", default="#CCCCCC")
+    x_position = models.IntegerField(default=0, help_text="Posición X en el mapa")
+    y_position = models.IntegerField(default=0, help_text="Posición Y en el mapa")
+    width = models.IntegerField(default=200, help_text="Ancho de la sección")
+    height = models.IntegerField(default=150, help_text="Alto de la sección")
     
     def __str__(self):
         return f"{self.venue.name} - {self.name}"

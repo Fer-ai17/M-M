@@ -1,21 +1,18 @@
 {% extends "base.html" %}
-{% load i18n static %}
+{% load static %}
 
 {% block content %}
-<h1>Diseñador de mapa de asientos: {{ venue.name }}</h1>
+<h1>Diseñador de asientos: {{ section.name }}</h1>
+
+<div class="section-info">
+    <p><strong>Venue:</strong> {{ venue.name }}</p>
+    <p><strong>Sección:</strong> {{ section.name }}</p>
+    <p><strong>Precio:</strong> ${{ section.price }}</p>
+</div>
 
 <div class="design-container">
     <div class="design-tools">
         <h2>Herramientas</h2>
-        
-        <div class="section-selector">
-            <label for="section">Sección:</label>
-            <select id="section">
-                {% for section in sections %}
-                <option value="{{ section.id }}" data-color="{{ section.color }}">{{ section.name }} (${{ section.price }})</option>
-                {% endfor %}
-            </select>
-        </div>
         
         <div class="action-buttons">
             <button id="addSeat">Añadir asiento</button>
@@ -46,10 +43,13 @@
             <h3>Opciones de mapa</h3>
             <button id="bulkCreate">Crear filas en bloque</button>
             <button id="saveMap">Guardar mapa</button>
+            <div style="margin-top: 15px;">
+                <a href="{% url 'venue_designer' venue.id %}" class="button">Volver al diseño</a>
+            </div>
         </div>
     </div>
     
-    <div class="seat-map" id="seatMap">
+    <div class="seat-map" id="seatMap" style="width:{{ section.width }}px; height:{{ section.height }}px; background-color:{{ section.color }};">
         <!-- Los asientos se cargarán/crearán dinámicamente -->
     </div>
 </div>
@@ -80,11 +80,11 @@
         </div>
         <div class="form-group">
             <label for="startX">Posición X inicial:</label>
-            <input type="number" id="startX" value="100">
+            <input type="number" id="startX" value="20">
         </div>
         <div class="form-group">
             <label for="startY">Posición Y inicial:</label>
-            <input type="number" id="startY" value="100">
+            <input type="number" id="startY" value="20">
         </div>
         
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
@@ -98,7 +98,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const seatMap = document.getElementById('seatMap');
     const seatForm = document.getElementById('seatForm');
-    const sectionSelect = document.getElementById('section');
     const addSeatButton = document.getElementById('addSeat');
     const deleteSeatButton = document.getElementById('deleteSeat');
     const applyPropertiesButton = document.getElementById('applyProperties');
@@ -266,9 +265,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const x = e.clientX - mapRect.left - dragOffsetX;
         const y = e.clientY - mapRect.top - dragOffsetY;
         
-        // Limitar al área del mapa
-        const limitedX = Math.max(0, Math.min(x, mapRect.width - 30));
-        const limitedY = Math.max(0, Math.min(y, mapRect.height - 30));
+        // Limitar al área de la sección
+        const limitedX = Math.max(0, Math.min(x, {{ section.width }} - 30));
+        const limitedY = Math.max(0, Math.min(y, {{ section.height }} - 30));
         
         selectedSeat.style.left = `${limitedX}px`;
         selectedSeat.style.top = `${limitedY}px`;
