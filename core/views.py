@@ -1,7 +1,10 @@
+import json
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Events, Tickets, Bought, Location, Municipality 
+from urllib3 import request
+from .models import Events, Tickets, Bought, Location, Municipality, Venue, Section, Seat 
 from decimal import Decimal, InvalidOperation
 from .cart import Cart
+from django.contrib import messages
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
@@ -9,10 +12,127 @@ from django.contrib.auth import login
 from django.shortcuts import render, redirect
 from django.contrib.auth.views import LoginView
 from django.contrib.auth import logout
+from django.core.serializers.json import DjangoJSONEncoder
 from .forms import EventsForm, ArtistForm, RegisterForm
 from django.urls import reverse_lazy
 from .utils import convert_currency as convert_currency, format_price
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
+import uuid
+
+#Mapa Interactivo
+def seat_map(request, event_id):
+    """Muestra el mapa de asientos para un evento"""
+    event = get_object_or_404(Events, pk=event_id)
+    
+    if not event.venue or not event.has_seat_map:
+        messages.error(request, "Este evento no tiene mapa de asientos configurado")
+        return redirect('events_detail', pk=event_id)
+    
+    # Obtener secciones y asientos
+    sections = Section.objects.filter(venue=event.venue)
+    
+    # Preparar datos para JS
+    sections_data = []
+    for section in sections:
+        sections_data.append({
+            'id': section.id,
+            'name': section.name,
+            'price': float(section.price),
+            'color': section.color
+        })
+
+    seats_data = []
+    for section in sections:
+        for seat in section.seats.all():
+            seats_data.append({
+                'id': seat.id,
+                'section': {
+                    'id': section.id,
+                    'name': section.name,
+                    'price': float(section.price),
+                    'color': section.color
+                },
+                'row': seat.row,
+                'number': seat.number,
+                'x_position': seat.x_position,
+                'y_position': seat.y_position,
+                'status': seat.status
+            })
+    # Generar ID de sesión para reserva temporal
+    reservation_session_id = request.session.get('reservation_session_id')
+    if not reservation_session_id:
+        reservation_session_id = str(uuid.uuid4())
+        request.session['reservation_session_id'] = reservation_session_id
+    
+    context = {
+        'event': event,
+        'sections': sections,
+        'sections_json': json.dumps(sections_data, cls=DjangoJSONEncoder),
+        'seats_json': json.dumps(seats_data, cls=DjangoJSONEncoder),
+        'reservation_session_id': reservation_session_id
+    }
+    return render(request, "store/seat_map.html", context)
+
+def toggle_seat(request, seat_id):
+    """API para reservar/liberar un asiento temporalmente"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'})
+    
+    reservation_session_id = request.session.get('reservation_session_id')
+    if not reservation_session_id:
+        return JsonResponse({'success': False, 'message': 'Sesión inválida'})
+    try:
+        seat = Seat.objects.get(pk=seat_id)
+        action = request.POST.get('action')
+        
+        if action == 'select' and seat.status == 'available':
+            # Marcar como temporalmente reservado por este usuario
+            seat.status = 'reserved'
+            seat.reserved_by = reservation_session_id
+            seat.save()
+            return JsonResponse({
+                'success': True,
+                'status': 'reserved',
+                'seat': {
+                    'id': seat.id,
+                    'section': seat.section.name,
+                    'row': seat.row,
+                    'number': seat.number,
+                    'price': float(seat.section.price)
+                }
+            })
+        
+        elif action == 'deselect' and seat.status == 'reserved' and seat.reserved_by == reservation_session_id:
+            # Liberar la reserva temporal
+            seat.status = 'available'
+            seat.reserved_by = None
+            seat.save()
+            return JsonResponse({'success': True, 'status': 'available'})
+        
+        else:
+            return JsonResponse({'success': False, 'message': 'Operación no permitida'})
+    
+    except Seat.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Asiento no encontrado'})
+    
+def reserve_seats(request, event_id):
+    """API para confirmar la reserva de asientos y añadirlos al carrito"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'})
+    
+    # Obtener datos
+    event = get_object_or_404(Events, pk=event_id)
+    reservation_session_id = request.session.get('reservation_session_id')
+    if not reservation_session_id:
+        return JsonResponse({'success': False, 'message': 'Sesión inválida'})
+    
+    # Buscar asientos reservados por este usuario
+    seats = Seat.objects.filter(
+        section__venue=event.venue,
+        status='reserved',
+        reserved_by=reservation_session_id
+    )
+ 
 
 #REGISTER - LOGIN - LOGOUT
 def register(request):
@@ -147,6 +267,19 @@ def bought_detail(request, pk):
     order = get_object_or_404(Bought, pk=pk)
     return render(request, "store/order_detail.html", {"order": order})
 
+
+@login_required
+def order_list(request):
+    orders = Bought.objects.all().order_by("-created_at")
+
+    return render(request, "store/order_list.html", {"orders": orders})
+
+
+@staff_member_required
+def order_detail(request, pk):
+    order = get_object_or_404(Bought , pk=pk)
+    return render(request, "store/order_detail.html", {"order": order})
+
 def events_detail(request, pk):
     events = get_object_or_404(Events, pk=pk)
     
@@ -165,6 +298,8 @@ def update_order_status(request, pk):
         order.save()
         return redirect("order_detail", pk=order.pk)
     return render(request, "store/update_order_status.html", {"order": order})
+
+
 
 
 def events_list(request):

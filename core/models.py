@@ -60,6 +60,8 @@ class Events(models.Model):
         ],
         default="ninguno",
     )
+    venue = models.ForeignKey("Venue", on_delete=models.SET_NULL, null=True, blank=True, related_name='events')
+    has_seat_map = models.BooleanField(default=False, help_text="¿Este evento usa mapa de asientos?")
 
     def __str__(self):
         return self.name
@@ -133,3 +135,40 @@ class Municipality(models.Model):
 
     def __str__(self):
         return self.name
+
+
+# Mapa Interactivo
+class Venue(models.Model):
+    """Representa un recinto/lugar donde se realizan eventos"""
+    name = models.CharField(max_length=100)
+    address = models.CharField(max_length=200, blank=True)
+    
+    def __str__(self):
+        return self.name
+
+class Section(models.Model):
+    """Representa una sección del venue (Ej: Platea, VIP, General)"""
+    venue = models.ForeignKey(Venue, on_delete=models.CASCADE, related_name='sections')
+    name = models.CharField(max_length=50)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    color = models.CharField(max_length=7, help_text="Color en formato HEX (#RRGGBB)", default="#CCCCCC")
+    
+    def __str__(self):
+        return f"{self.venue.name} - {self.name}"
+
+class Seat(models.Model):
+    """Representa un asiento individual"""
+    section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name='seats')
+    row = models.CharField(max_length=10)  # Ej: A, B, C o 1, 2, 3
+    number = models.CharField(max_length=10)  # Ej: 1, 2, 3...
+    x_position = models.IntegerField(help_text="Posición X en el mapa")
+    y_position = models.IntegerField(help_text="Posición Y en el mapa")
+    status = models.CharField(max_length=20, choices=[
+        ('available', 'Disponible'),
+        ('reserved', 'Reservado'),
+        ('sold', 'Vendido'),
+        ('blocked', 'Bloqueado'),
+    ], default='available')
+    
+    def __str__(self):
+        return f"{self.section.name} Fila {self.row} Asiento {self.number}"

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from django.contrib.auth.models import User
-from .models import Profile, Role, TypeDocument, Events
+from .models import Profile, Role, TypeDocument, Events, Venue, Section, Seat
 
 class ProfileInline(admin.StackedInline):
     model = Profile
@@ -34,3 +34,28 @@ admin.site.register(TypeDocument)
 admin.site.register(Profile)
 
 admin.site.register(Events)
+
+class SectionInline(admin.TabularInline):
+    model = Section
+    extra = 1
+
+@admin.register(Venue)
+class VenueAdmin(admin.ModelAdmin):
+    list_display = ('name', 'address')
+    inlines = [SectionInline]
+
+class SeatInline(admin.TabularInline):
+    model = Seat
+    extra = 0
+
+@admin.register(Section)
+class SectionAdmin(admin.ModelAdmin):
+    list_display = ('name', 'venue', 'price')
+    list_filter = ('venue',)
+    inlines = [SeatInline]
+
+@admin.register(Seat)
+class SeatAdmin(admin.ModelAdmin):
+    list_display = ('section', 'row', 'number', 'status')
+    list_filter = ('section__venue', 'section', 'status')
+    search_fields = ('row', 'number')
