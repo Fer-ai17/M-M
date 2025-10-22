@@ -4,24 +4,30 @@ from .models import Events, Artist
 class EventsForm(forms.ModelForm):
     class Meta:
         model = Events
-        fields = ["name", "description", "start_date", "end_date", "location", "artist"]
-        fields = ["name", "description", "start_date", "end_date", "location", "artist", "label"]
-        fields = ["name", "description", "start_date", "end_date", "location", "artist", "place", "label"]
-
+        fields = [
+            "name",
+            "start",   
+            "end",    
+            "price",
+            "stock",
+            "location",  
+            "artists",   
+        ]
         widgets = {
-            # si quieres fecha+hora:
-            "start_date": forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
-            "end_date": forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
-            # si sólo fecha (sin hora) usa:
-            # "start_date": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
-            # "end_date": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+            "start": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+            "end": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+            "price": forms.NumberInput(attrs={"type": "number", "step": "0.01"}),
+            "stock": forms.NumberInput(attrs={"min": 0}),
+            "artists": forms.SelectMultiple(attrs={"class": "form-select"}),
+            "location": forms.Select(attrs={"class": "form-select"}),
         }
 
     def __init__(self, *args, **kwargs):
+        # asegurar formato correcto para datetime-local cuando hay instancias
         super().__init__(*args, **kwargs)
-        # input_formats para que Django acepte el valor enviado por el widget
-        self.fields["start_date"].input_formats = ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S")
-        self.fields["end_date"].input_formats = ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S")
+        for f in ("start", "end"):
+            if self.instance and getattr(self.instance, f):
+                self.fields[f].initial = getattr(self.instance, f).strftime("%Y-%m-%dT%H:%M")
 
 class ArtistForm(forms.ModelForm):
     events = forms.ModelChoiceField(queryset=Events.objects.all(), required=False, widget=forms.CheckboxSelectMultiple)
