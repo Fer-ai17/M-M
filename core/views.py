@@ -355,7 +355,6 @@ def delete_events(request, pk):
 
 #LISTS - DETAILS - ORDERS
 
-
 @login_required
 def bought(request):
     orders = Bought.objects.all().order_by("-created_at")
