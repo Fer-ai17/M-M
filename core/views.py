@@ -57,7 +57,8 @@ def admin_dashboard_events(request):
 def search_events(request):
     query = request.GET.get("q", "")
     events = Events.objects.filter(name__icontains=query) | Events.objects.filter(description__icontains=query)
-    
+    # Filtrar por ubicación
+
     return render(request, "store/product_list.html", {
         "events": events,
         "search_query": query,
