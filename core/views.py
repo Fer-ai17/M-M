@@ -293,7 +293,6 @@ def admin_dashboard_events(request):
     # events = Events.objects.all().order_by("-created_at") , {"events": events}
     return render(request, "store/admin_dashboard_products.html")
 
-
 def search_events(request):
     query = request.GET.get("q", "")
     events = Events.objects.filter(name__icontains=query) | Events.objects.filter(description__icontains=query)
@@ -308,7 +307,6 @@ def search_events(request):
     })
 
 #CRUD-Events
-
 @staff_member_required
 def create_events(request):
     if not request.user.is_staff:  # solo admins o staff
@@ -356,26 +354,22 @@ def delete_events(request, pk):
     return redirect("admin_dashboard")
 
 #LISTS - DETAILS - ORDERS
-
 @login_required
 def bought(request):
     orders = Bought.objects.all().order_by("-created_at")
     
     return render(request, "store/bought.html", {"orders": orders})
 
-
 @staff_member_required
 def bought_detail(request, pk):
     order = get_object_or_404(Bought, pk=pk)
     return render(request, "store/order_detail.html", {"order": order})
-
 
 @login_required
 def order_list(request):
     orders = Bought.objects.all().order_by("-created_at")
 
     return render(request, "store/order_list.html", {"orders": orders})
-
 
 @staff_member_required
 def order_detail(request, pk):
@@ -400,7 +394,6 @@ def update_order_status(request, pk):
         order.save()
         return redirect("order_detail", pk=order.pk)
     return render(request, "store/update_order_status.html", {"order": order})
-
 
 def events_list(request):
     qs = Events.objects.select_related("location", "artist", "place").all()
