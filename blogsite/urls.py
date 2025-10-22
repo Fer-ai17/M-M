@@ -18,6 +18,7 @@ urlpatterns = [
     path("login/", views.CustomLoginView.as_view(), name="login"),
     path("logout/", views.custom_logout, name="logout"),
     path("edit/profile/", views.profile, name="edit_profile"),
+    path("bought/", views.bought, name="bought"),
     path("products/new/", views.create_events, name="create_product"),
     path("dashboard/products/", views.admin_dashboard_events, name="admin_dashboard_events"),
     path("products/<int:pk>/edit/", views.edit_events, name="edit_events"),

@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Events, Tickets, Bought
+from .models import Events, Tickets, Bought, Location, Municipality  # add Municipality
+from decimal import Decimal, InvalidOperation
 from .cart import Cart
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
@@ -92,7 +93,7 @@ def search_events(request):
     query = request.GET.get("q", "")
     events = Events.objects.filter(name__icontains=query) | Events.objects.filter(description__icontains=query)
     # Filtrar por ubicación
-    municipality_q = request.GET.get("place", "")
+    municipality_q = request.GET.get("place", "").strip()
     if municipality_q:
         events = events.filter(municipality__name__icontains=municipality_q)
 
@@ -150,6 +151,15 @@ def delete_events(request, pk):
     return redirect("admin_dashboard")
 
 #LISTS - DETAILS - ORDERS
+
+@login_required
+def bought(request):
+    cart = Cart(request)
+    
+    if not cart:
+        return render(request, "store/cart_empty.html")
+
+    return render(request, "store/bought.html")
 
 @staff_member_required
 def bought_list(request):
@@ -220,12 +230,42 @@ def get_converted_cart_items(cart, currency):
     return converted_items
 
 def events_list(request):
-    # obtiene eventos con location para evitar consultas N+1
-    events = Events.objects.select_related("location").all()
+    qs = Events.objects.select_related("location", "artist", "place").all()
 
-    return render(request, "store/product_list.html", {
-        "events": events
-    })
+    q = request.GET.get("q", "").strip()
+    location_q = request.GET.get("location", "").strip()
+    municipality_q = request.GET.get("municipality", "").strip()
+    label = request.GET.get("label", "").strip()
+
+    if q:
+        qs = qs.filter(name__icontains=q)
+
+    if location_q:
+        qs = qs.filter(location__name__icontains=location_q)
+
+    if municipality_q:
+        # intenta filtrar por id o por nombre parcial
+        if municipality_q.isdigit():
+            qs = qs.filter(place__id=int(municipality_q))
+        else:
+            qs = qs.filter(place__name__icontains=municipality_q)
+
+
+    if label:
+        qs = qs.filter(label=label)
+
+    events = qs
+
+    context = {
+        "events": events,
+        "q": q,
+        "location_q": location_q,
+        "municipality_q": municipality_q,
+        "label": label,
+        "locations": Location.objects.all(),
+        "municipalities": Municipality.objects.all(),
+    }
+    return render(request, "store/product_list.html", context)
 
 def add_to_cart(request, pk):
     cart = Cart(request)
