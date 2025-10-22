@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ events.name }}{% endblock %}
+
+{% block content %}
+<div class="product-detail">
+
+  <div class="product-detail-info">
+    <h2>{{ events.name }}</h2>
+    <p class="price">
+      Precio: {{ converted_price }}
+      {% if currency != "COP" %}
+        <small class="price-base">(~{{ base_price }})</small>
+      {% endif %}
+    </p>
+    <p class="stock">Disponibles: {{ events.stock }}</p>
+    <p class="desc">{{ events.description }}</p>
+
+    {% if events.stock > 0 %}
+      <a href="{% url 'add_to_cart' events.id %}" class="btn">Añadir al carrito</a>
+    {% else %}
+      <p class="out-of-stock">Tickets agotados</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

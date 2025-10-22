@@ -50,6 +50,18 @@ def admin_dashboard_events(request):
     return render(request, "store/admin_dashboard_products.html")
 
 
+<<<<<<< HEAD
+=======
+def search_events(request):
+    query = request.GET.get("q", "")
+    events = Events.objects.filter(name__icontains=query) | Events.objects.filter(description__icontains=query)
+    
+    return render(request, "store/product_list.html", {
+        "events": events,
+        "search_query": query,
+    })
+
+>>>>>>> fer
 @staff_member_required
 def edit_events(request, pk):
     events = get_object_or_404(Events, pk=pk)
@@ -127,7 +139,11 @@ def get_converted_cart_items(cart, currency):
     
     for item in cart:
         events = item['events']
+<<<<<<< HEAD
         local_price = convert_currency_utils(events.price, "COP", currency)
+=======
+        local_price = convert_currency_utils(events.price, "COP", currency) # type: ignore
+>>>>>>> fer
         converted_items.append({
             'events': events,
             'quantity': item['quantity'],
@@ -193,6 +209,7 @@ def events_list(request):
     # obtiene eventos con location para evitar consultas N+1
     events = Events.objects.select_related("location").all()
 
+<<<<<<< HEAD
     # moneda válida: COP o USD (por defecto COP)
     currency = request.session.get("currency", "COP")
     if currency not in ["COP", "USD"]:
@@ -220,6 +237,10 @@ def events_list(request):
     return render(request, "store/product_list.html", {
         "events": converted_events,
         "current_currency": currency
+=======
+    return render(request, "store/product_list.html", {
+        "events": events
+>>>>>>> fer
     })
 
 def add_to_cart(request, pk):

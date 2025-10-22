@@ -1,0 +1,11 @@
+{% extends "../base.html" %}
+{% block content %}
+<h1>Finalizar compra</h1>
+<form method="post">
+  {% csrf_token %}
+  <p>Nombre: <input type="text" name="name" required></p>
+  <p>Email: <input type="email" name="email" required></p>
+  <p>Dirección: <textarea name="address" required></textarea></p>
+  <button type="submit">Confirmar pedido</button>
+</form>
+{% endblock %}

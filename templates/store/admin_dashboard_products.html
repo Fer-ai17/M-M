@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Gestión de Eventos{% endblock %}
+
+{% block content %}
+<h2>Gestión de eventos</h2>
+
+<p><a href="{% url 'create_events' %}" class="btn">➕ Añadir nuevo</a></p>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Nombre</th>
+      <th>Cantidad</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for event in events %}
+      <tr>
+        <td>{{ event.name }}</td>
+        <td>{{ event.stock }}</td>
+        <td>{{ event.get_label_display }}</td>
+        <td>
+          <a href="{% url 'edit_events' event.id %}">Editar</a> | 
+          <a href="{% url 'delete_events' event.id %}" onclick="return confirm('¿Seguro que deseas eliminar este evento?')">Eliminar</a>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6">No hay eventos aún.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<a href="{% url 'admin_dashboard' %}">← Volver al panel</a>
+{% endblock %}
