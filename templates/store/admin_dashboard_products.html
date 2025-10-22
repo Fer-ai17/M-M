@@ -4,7 +4,7 @@
 {% block content %}
 <h2>Gestión de eventos</h2>
 
-<p><a href="{% url 'create_product' %}" class="btn">➕ Añadir nuevo</a></p>
+<p><a href="{% url 'create_events' %}" class="btn">➕ Añadir nuevo</a></p>
 
 <table class="table">
   <thead>
@@ -15,14 +15,14 @@
     </tr>
   </thead>
   <tbody>
-    {% for product in products %}
+    {% for event in events %}
       <tr>
-        <td>{{ product.name }}</td>
-        <td>{{ product.stock }}</td>
-        <td>{{ product.get_label_display }}</td>
+        <td>{{ event.name }}</td>
+        <td>{{ event.stock }}</td>
+        <td>{{ event.get_label_display }}</td>
         <td>
-          <a href="{% url 'edit_product' product.id %}">Editar</a> | 
-          <a href="{% url 'delete_product' product.id %}" onclick="return confirm('¿Seguro que deseas eliminar este producto?')">Eliminar</a>
+          <a href="{% url 'edit_events' event.id %}">Editar</a> | 
+          <a href="{% url 'delete_events' event.id %}" onclick="return confirm('¿Seguro que deseas eliminar este evento?')">Eliminar</a>
         </td>
       </tr>
     {% empty %}
