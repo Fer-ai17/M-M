@@ -5,14 +5,14 @@
   {% for item in converted_items %}
     <div class="cart-item">
       <h4>{{ item.event.name }}</h4>
-      <p>Precio: {{ item.converted_price }}</p>
+      <p>Precio: {{ item.price }}</p>
       <p>Localidad: {{ item.event.location }}</p>
       <p>Cantidad: {{ item.quantity }}</p>
-      <p>Total: {{ item.converted_total }}</p>
+      <p>Total: {{ item.total }}</p>
     </div>
   {% endfor %}
   <div class="cart-total">
-    <strong>Total: {{ total_converted }}</strong>
+    <strong>Total: {{ total }}</strong>
   </div>
 </ul>
 <a href="{% url 'checkout' %}" class="btn">Proceder al pago</a>

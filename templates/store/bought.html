@@ -7,22 +7,22 @@
   <thead>
     <tr>
       <th>ID</th>
-      <th>Cliente</th>
-      <th>Email</th>
+      <th>Evento</th>
+      <th>Ubicación</th>
       <th>Fecha</th>
       <th>Total</th>
       <th></th>
     </tr>
   </thead>
   <tbody>
-    {% for order in orders %}
+    {% for bought in bought_items %}
       <tr>
-        <td>#{{ order.id }}</td>
-        <td>{{ order.customer_name }}</td>
-        <td>{{ order.customer_email }}</td>
-        <td>{{ order.created_at|date:"d/m/Y H:i" }}</td>
-        <td>${{ order.total }}</td>
-        <td><a href="{% url 'order_detail' order.id %}">Ver detalles</a></td>
+        <td>#{{ bought.id }}</td>
+        <td>{{ bought.event.name }}</td>
+        <td>{{ bought.event.location }}</td>
+        <td>{{ bought.created_at|date:"d/m/Y H:i" }}</td>
+        <td>${{ bought.total }}</td>
+        <td><a href="{% url 'bought_detail' bought.id %}">Ver detalles</a></td>
       </tr>
     {% empty %}
       <tr><td colspan="6">No hay compras todavía.</td></tr>

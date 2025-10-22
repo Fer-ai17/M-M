@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Events, Tickets, Bought, Location, Municipality  # add Municipality
+from .models import Events, Tickets, Bought, Location, Municipality 
 from decimal import Decimal, InvalidOperation
 from .cart import Cart
 from django.contrib.auth.forms import UserCreationForm
@@ -15,7 +15,6 @@ from .utils import convert_currency as convert_currency, format_price
 from django.http import HttpResponseRedirect
 
 #REGISTER - LOGIN - LOGOUT
-
 def register(request):
     if request.method == "POST":
         form = RegisterForm(request.POST)
@@ -51,23 +50,7 @@ def profile(request):
         form = RegisterForm(instance=request.user)
     return render(request, "registration/profile.html", {"form": form})
 
-#CURRENCY - ADMIN DASHBOARD - SEARCH
-
-def change_currency(request, code):
-    """Cambia la moneda - solo permite COP y USD"""
-    valid_currencies = ["COP", "USD"]
-    code = code.upper()
-    
-    if code in valid_currencies:
-        request.session["currency"] = code
-        request.session["currency_manual"] = True
-        print(f"✅ Moneda cambiada a: {code}")
-    else:
-        request.session["currency"] = "COP"
-        print(f"⚠️ Moneda no válida, usando COP por defecto")
-    
-    return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
-
+#ADMIN DASHBOARD - SEARCH
 @staff_member_required
 def admin_dashboard(request):
     total_events = Events.objects.count()
@@ -154,17 +137,10 @@ def delete_events(request, pk):
 
 @login_required
 def bought(request):
-    cart = Cart(request)
-    
-    if not cart:
-        return render(request, "store/cart_empty.html")
-
-    return render(request, "store/bought.html")
-
-@staff_member_required
-def bought_list(request):
     orders = Bought.objects.all().order_by("-created_at")
-    return render(request, "store/order_list.html", {"orders": orders})
+    
+    return render(request, "store/bought.html", {"orders": orders})
+
 
 @staff_member_required
 def bought_detail(request, pk):
@@ -174,23 +150,9 @@ def bought_detail(request, pk):
 def events_detail(request, pk):
     events = get_object_or_404(Events, pk=pk)
     
-    currency = request.session.get("currency", "COP")
-    if currency not in ["COP", "USD"]:
-        currency = "COP"
-    
-    locale = "es_CO" if currency == "COP" else "en_US"
-    
-    # Conversión simple
-    if currency == "COP":
-        local_price = events.price
-    else:
-        local_price = convert_currency(events.price, "COP", "USD")
-    
     context = {
         "events": events,
-        "converted_price": format_price(local_price, currency, locale),
         "base_price": format_price(events.price, "COP", "es_CO"),
-        "currency": currency,
     }
     return render(request, "store/product_detail.html", context)
 
@@ -204,30 +166,6 @@ def update_order_status(request, pk):
         return redirect("order_detail", pk=order.pk)
     return render(request, "store/update_order_status.html", {"order": order})
 
-def get_converted_cart_items(cart, currency):
-    """Convierte los precios del carrito a la moneda seleccionada"""
-    converted_items = []
-    locale_map = {
-        "COP": "es_CO",
-        "USD": "en_US",
-        "EUR": "es_ES",
-        "MXN": "es_MX",
-        "ARS": "es_AR",
-    }
-    locale = locale_map.get(currency, "es_CO")
-    
-    for item in cart:
-        events = item['events']
-        local_price = convert_currency_utils(events.price, "COP", currency) # type: ignore
-        converted_items.append({
-            'events': events,
-            'quantity': item['quantity'],
-            'converted_price': format_price(local_price, currency, locale),
-            'converted_total': format_price(local_price * item['quantity'], currency, locale),
-            'base_price': format_price(events.price, "COP", "es_CO"),
-        })
-    
-    return converted_items
 
 def events_list(request):
     qs = Events.objects.select_related("location", "artist", "place").all()
@@ -275,8 +213,6 @@ def add_to_cart(request, pk):
 
 def cart_detail(request):
     cart = Cart(request)
-    currency = request.session.get("currency", "COP")
-    locale = "es_CO" if currency == "COP" else "en_US"
     
     cart_items = []
     total = 0
@@ -285,42 +221,32 @@ def cart_detail(request):
         events = item['events']
         quantity = item['quantity']
         
-        # Precio convertido
-        if currency == "COP":
-            price = events.price
-        else:
-            price = convert_currency(events.price, "COP", "USD")
-        
+        price = events.price
+
         item_total = price * quantity
         total += item_total
         
         cart_items.append({
             'events': events,
             'quantity': quantity,
-            'price': format_price(price, currency, locale),
-            'total': format_price(item_total, currency, locale),
+            'price': format_price(price),
+            'total': format_price(item_total),
         })
     
     context = {
         'cart_items': cart_items,
-        'total': format_price(total, currency, locale),
-        'currency': currency,
+        'total': format_price(total),
     }
     return render(request, "store/cart_detail.html", context)
 
 def checkout(request):
     cart = Cart(request)
-    currency = request.session.get("currency", "COP")
-    locale = "es_CO" if currency == "COP" else "en_US"
     
     # Calcular total (similar a cart_detail)
     total = 0
     for item in cart:
         events = item['events']
-        if currency == "COP":
-            price = events.price
-        else:
-            price = convert_currency(events.price, "COP", "USD")
+        price = events.price
         total += price * item['quantity']
 
     if request.method == "POST":
@@ -353,8 +279,7 @@ def checkout(request):
 
     context = {
         'cart': cart,
-        'total': format_price(total, currency, locale),
-        'currency': currency,
+        'total': format_price(total),
     }
     return render(request, "store/checkout.html", context)
 

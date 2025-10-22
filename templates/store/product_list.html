@@ -115,12 +115,6 @@
           <a href="{% url 'events_detail' event.pk %}" style="text-decoration:none; color:#212529;">{{ event.name }}</a>
         </h3>
 
-        <p class="price" style="font-weight:600; color:#0d6efd; margin:5px 0;">
-          {% with price=event.price|default:event.location.price %}
-            {{ price }} COP
-          {% endwith %}
-        </p>
-
         <p class="desc" style="color:#555; margin:8px 0; font-size:14px;">{{ event.description|default:"Sin descripción"|truncatechars:80 }}</p>
         <p class="stock" style="font-size:0.9rem; color:#333; margin:5px 0;">Disponibles: {{ event.location.stock|default:"N/D" }}</p>
 
