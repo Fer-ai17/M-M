@@ -4,13 +4,10 @@ from .models import Events, Artist
 class EventsForm(forms.ModelForm):
     class Meta:
         model = Events
-<<<<<<< HEAD
         fields = ["name", "description", "start_date", "end_date", "location", "artist"]
         fields = ["name", "description", "start_date", "end_date", "location", "artist", "label"]
-=======
         fields = ["name", "description", "start_date", "end_date", "location", "artist", "place", "label"]
 
->>>>>>> 3db138f7f4e8dc02d1a8ce67eff56da0e85d5050
         widgets = {
             # si quieres fecha+hora:
             "start_date": forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),

@@ -16,6 +16,7 @@ from django.core.exceptions import ValidationError
 from .utils import convert_currency as convert_currency_utils
 from .forms import ArtistForm
 from .forms import EventArtist
+from django.contrib import messages
 
 
 def change_currency(request, code):
@@ -255,91 +256,139 @@ def events_list(request):
 def add_to_cart(request, pk):
     cart = Cart(request)
     events = get_object_or_404(Events, pk=pk)
-    cart.add(events)
+
+    # cantidad a añadir: si tu UI envía quantity en POST, úsala; por defecto 1
+    add_qty = 1
+    if request.method == "POST":
+        try:
+            add_qty = int(request.POST.get("quantity", 1))
+            if add_qty < 1:
+                add_qty = 1
+        except Exception:
+            add_qty = 1
+
+    # calcular cantidad total actual en carrito
+    total_qty = 0
+    for item in cart:
+        try:
+            total_qty += int(item.get("quantity", 0))
+        except Exception:
+            pass
+
+    if total_qty + add_qty > 10:
+        messages.error(request, "No puede añadir más de 10 boletas en un solo pedido.")
+        return redirect("cart_detail")
+
+    # añadir al carrito (ajusta según tu implementación de Cart)
+    cart.add(events, quantity=add_qty)
+    messages.success(request, "Boleta(s) añadidas al carrito.")
     return redirect("cart_detail")
 
 def cart_detail(request):
     cart = Cart(request)
     currency = request.session.get("currency", "COP")
     locale = "es_CO" if currency == "COP" else "en_US"
-    
+
     cart_items = []
     total = 0
-    
+    total_qty = 0
+
     for item in cart:
-        events = item['events']
-        quantity = item['quantity']
-        
+        events = item["events"]
+        quantity = int(item.get("quantity", 0))
+        total_qty += quantity
+
         # Precio convertido
         if currency == "COP":
             price = events.price
         else:
             price = convert_currency(events.price, "COP", "USD")
-        
+
         item_total = price * quantity
         total += item_total
-        
+
         cart_items.append({
-            'events': events,
-            'quantity': quantity,
-            'price': format_price(price, currency, locale),
-            'total': format_price(item_total, currency, locale),
+            "events": events,
+            "quantity": quantity,
+            "price": format_price(price, currency, locale),
+            "total": format_price(item_total, currency, locale),
         })
-    
+
     context = {
-        'cart_items': cart_items,
-        'total': format_price(total, currency, locale),
-        'currency': currency,
+        "cart_items": cart_items,
+        "total": format_price(total, currency, locale),
+        "currency": currency,
+        "total_qty": total_qty,
     }
     return render(request, "store/cart_detail.html", context)
 
+@login_required
 def checkout(request):
     cart = Cart(request)
     currency = request.session.get("currency", "COP")
     locale = "es_CO" if currency == "COP" else "en_US"
-    
-    # Calcular total (similar a cart_detail)
+
+    # calcula el total y la cantidad total de boletas
     total = 0
+    total_qty = 0
     for item in cart:
-        events = item['events']
+        events = item["events"]
+        qty = int(item.get("quantity", 0))
+        total_qty += qty
         if currency == "COP":
             price = events.price
         else:
             price = convert_currency(events.price, "COP", "USD")
-        total += price * item['quantity']
+        total += price * qty
+
+    if total_qty == 0:
+        messages.error(request, "El carrito está vacío.")
+        return redirect("events_list")
+
+    if total_qty > 10:
+        messages.error(request, "No se puede procesar la compra: el pedido supera las 10 boletas permitidas.")
+        return redirect("cart_detail")
 
     if request.method == "POST":
         name = request.POST.get("name")
         email = request.POST.get("email")
         address = request.POST.get("address")
 
-        # Crear pedido
         order = Bought.objects.create(
             customer_name=name,
             customer_email=email,
             customer_address=address,
         )
 
-        # Crear items del pedido
+        errors = []
         for item in cart:
-            Tickets.objects.create(
-                order=order,
-                events=item["events"],
-                quantity=item["quantity"],
-                price=item["events"].price,
-            )
-            # Descontar stock
-            events = item["events"]
-            events.stock -= item["quantity"]
-            events.save()
+            try:
+                Tickets.objects.create(
+                    order=order,
+                    events=item["events"],
+                    quantity=item["quantity"],
+                    price=item["events"].price,
+                )
+                events = item["events"]
+                events.stock -= item["quantity"]
+                events.save()
+            except Exception as e:
+                errors.append(str(e))
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+            return redirect("cart_detail")
 
         cart.clear()
+        messages.success(request, "Compra realizada correctamente.")
         return render(request, "store/checkout_done.html", {"order": order})
 
     context = {
-        'cart': cart,
-        'total': format_price(total, currency, locale),
-        'currency': currency,
+        "cart": cart,
+        "total": format_price(total, currency, locale),
+        "currency": currency,
+        "total_qty": total_qty,
     }
     return render(request, "store/checkout.html", context)
 
