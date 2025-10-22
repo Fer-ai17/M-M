@@ -13,7 +13,7 @@
         {% if user.is_authenticated %}
           {% if user.is_staff %}
             <li><a href="{% url 'admin_dashboard' %}">Panel</a></li>
-            <li><a href="{% url 'create_product' %}">Nuevo Evento</a></li>
+            <li><a href="{% url 'create_events' %}">Nuevo Evento</a></li>
             <li><a href="{% url 'create_artist' %}">Nuevo Artista</a></li>
           {% endif %}
           <li><a href="{% url 'logout' %}">Cerrar sesión</a></li>
