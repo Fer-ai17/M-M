@@ -497,6 +497,10 @@ def add_to_cart(request, pk):
     if total_qty + add_qty > 10:
         messages.error(request, "No puede añadir más de 10 boletas en un solo pedido.")
         return redirect("cart_detail")
+    
+    if add_qty > events.stock:
+        messages.error(request, "No hay suficiente stock disponible para la cantidad solicitada.")
+        return redirect("cart_detail")
 
     # añadir al carrito (ajusta según tu implementación de Cart)
     cart.add(events, quantity=add_qty)
