@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Events, Tickets, Bought
 from .cart import Cart
-from django.contrib.auth.forms import UserCreationForm
+from .forms import CustomUserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login
@@ -20,6 +20,8 @@ from .models import Artist
 from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
+
+
 
 
 def change_currency(request, code):
@@ -162,13 +164,13 @@ def get_converted_cart_items(cart, currency):
 
 def register(request):
     if request.method == "POST":
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)  # inicia sesión automáticamente
             return redirect("events_list")  # o "home"
     else:
-        form = UserCreationForm()
+        form = CustomUserCreationForm()
     return render(request, "registration/register.html", {"form": form})
     
 class CustomLoginView(LoginView):
@@ -354,7 +356,7 @@ def checkout(request):
             errors = []
             reserve = []  # (event_obj, qty, unit_price)
 
-            # Bloquear y validar stock
+            # validar stock
             for item in cart:
                 ev = item["events"]
                 qty = int(item.get("quantity", 0))

@@ -34,6 +34,15 @@
         </label>
 
         <label class="form-label me-2 mb-0">
+          Fecha mínima
+          <input type="date" name="min_date" class="form-control form-control-sm" value="{{ min_date|default:'' }}">
+        </label>
+        <label class="form-label me-2 mb-0">
+          Fecha máxima
+          <input type="date" name="max_date" class="form-control form-control-sm" value="{{ max_date|default:'' }}">
+        </label>
+
+        <label class="form-label me-2 mb-0">
           Tipo
           <select name="label" class="form-select form-select-sm">
             <option value="">Todas</option>
