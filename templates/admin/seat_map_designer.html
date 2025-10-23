@@ -2,38 +2,29 @@
 {% load static %}
 
 {% block content %}
-<h1>Diseñador de mapa de asientos: {{ venue.name }}</h1>
+<h1>Diseñador de mapa de asientos: {{ venue.name }} - Sección: {{ section.name }}</h1>
 
-<div class="design-container">
-    <div class="design-tools">
+<div class="design-container" style="display: flex; gap: 20px;">
+    <div class="design-tools" style="width: 300px; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
         <h2>Herramientas</h2>
         
-        <div class="section-selector">
-            <label for="section">Sección:</label>
-            <select id="section">
-                {% for section in sections %}
-                <option value="{{ section.id }}" data-color="{{ section.color }}">{{ section.name }} (${{ section.price }})</option>
-                {% endfor %}
-            </select>
-        </div>
-        
-        <div class="action-buttons">
+        <div class="action-buttons" style="display: flex; gap: 10px; margin-bottom: 15px;">
             <button id="addSeat">Añadir asiento</button>
             <button id="deleteSeat" disabled>Eliminar</button>
         </div>
         
-        <div class="seat-form" id="seatForm">
+        <div class="seat-form" id="seatForm" style="margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
             <h3>Propiedades del asiento</h3>
-            <div class="form-group">
-                <label for="seatRow">Fila:</label>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label for="seatRow" style="display: block; margin-bottom: 5px;">Fila:</label>
                 <input type="text" id="seatRow" value="A">
             </div>
-            <div class="form-group">
-                <label for="seatNumber">Número:</label>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label for="seatNumber" style="display: block; margin-bottom: 5px;">Número:</label>
                 <input type="text" id="seatNumber" value="1">
             </div>
-            <div class="form-group">
-                <label for="seatStatus">Estado:</label>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label for="seatStatus" style="display: block; margin-bottom: 5px;">Estado:</label>
                 <select id="seatStatus">
                     <option value="available">Disponible</option>
                     <option value="blocked">Bloqueado</option>
@@ -42,15 +33,22 @@
             <button id="applyProperties">Aplicar</button>
         </div>
         
-        <div class="seat-map-tools">
+        <div class="seat-map-tools" style="margin-top: 20px;">
             <h3>Opciones de mapa</h3>
             <button id="bulkCreate">Crear filas en bloque</button>
             <button id="saveMap">Guardar mapa</button>
+            <div style="margin-top: 15px;">
+                <a href="javascript:history.back()" class="button">Volver atrás</a>
+            </div>
         </div>
     </div>
     
-    <div class="seat-map" id="seatMap">
-        <!-- Los asientos se cargarán/crearán dinámicamente -->
+    <div class="seat-map" id="seatMap" style="position: relative; width: 800px; height: 600px; border: 1px solid #ddd; background: #f9f9f9; overflow: auto;">
+        <!-- Área para el escenario -->
+        <div style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px; width: 300px; text-align: center;">
+            ESCENARIO
+        </div>
+        <!-- Los asientos se cargarán dinámicamente -->
     </div>
 </div>
 
@@ -58,32 +56,32 @@
     <div style="background:white; margin:10% auto; padding:20px; width:500px; border-radius:5px;">
         <h3>Crear asientos en bloque</h3>
         
-        <div class="form-group">
-            <label for="rowStart">Fila inicial:</label>
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="rowStart" style="display: block; margin-bottom: 5px;">Fila inicial:</label>
             <input type="text" id="rowStart" value="A">
         </div>
-        <div class="form-group">
-            <label for="rowCount">Número de filas:</label>
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="rowCount" style="display: block; margin-bottom: 5px;">Número de filas:</label>
             <input type="number" id="rowCount" value="5" min="1">
         </div>
-        <div class="form-group">
-            <label for="seatsPerRow">Asientos por fila:</label>
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="seatsPerRow" style="display: block; margin-bottom: 5px;">Asientos por fila:</label>
             <input type="number" id="seatsPerRow" value="10" min="1">
         </div>
-        <div class="form-group">
-            <label for="horizontalGap">Espacio horizontal entre asientos:</label>
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="horizontalGap" style="display: block; margin-bottom: 5px;">Espacio horizontal entre asientos:</label>
             <input type="number" id="horizontalGap" value="40" min="20">
         </div>
-        <div class="form-group">
-            <label for="verticalGap">Espacio vertical entre filas:</label>
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="verticalGap" style="display: block; margin-bottom: 5px;">Espacio vertical entre filas:</label>
             <input type="number" id="verticalGap" value="40" min="20">
         </div>
-        <div class="form-group">
-            <label for="startX">Posición X inicial:</label>
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="startX" style="display: block; margin-bottom: 5px;">Posición X inicial:</label>
             <input type="number" id="startX" value="100">
         </div>
-        <div class="form-group">
-            <label for="startY">Posición Y inicial:</label>
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="startY" style="display: block; margin-bottom: 5px;">Posición Y inicial:</label>
             <input type="number" id="startY" value="100">
         </div>
         
@@ -94,15 +92,57 @@
     </div>
 </div>
 
+<style>
+.seat {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background-color: #cccccc;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: move;
+    user-select: none;
+    box-shadow: 0 2px 2px rgba(0,0,0,0.2);
+    font-size: 10px;
+}
+
+.seat.selected {
+    border: 2px solid #000;
+}
+
+button {
+    padding: 8px 15px;
+    background: #417690;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 5px;
+}
+
+button:hover {
+    background: #205067;
+}
+
+button:disabled {
+    background: #cccccc;
+}
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const seatMap = document.getElementById('seatMap');
     const seatForm = document.getElementById('seatForm');
-    const sectionSelect = document.getElementById('section');
     const addSeatButton = document.getElementById('addSeat');
     const deleteSeatButton = document.getElementById('deleteSeat');
     const applyPropertiesButton = document.getElementById('applyProperties');
     const saveMapButton = document.getElementById('saveMap');
+    const bulkCreateButton = document.getElementById('bulkCreate');
+    const bulkCreateModal = document.getElementById('bulkCreateModal');
+    const cancelBulkCreate = document.getElementById('cancelBulkCreate');
+    const createBulk = document.getElementById('createBulk');
     
     // Variables de estado
     let seats = [];
@@ -118,13 +158,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Añadir nuevo asiento
     addSeatButton.addEventListener('click', function() {
-        const selectedSection = sectionSelect.options[sectionSelect.selectedIndex];
-        const sectionId = selectedSection.value;
-        const sectionColor = selectedSection.dataset.color;
-        
         const newSeat = {
             id: nextSeatId--,
-            section__id: sectionId,
             row: document.getElementById('seatRow').value,
             number: document.getElementById('seatNumber').value,
             x_position: 100,
@@ -132,28 +167,22 @@ document.addEventListener('DOMContentLoaded', function() {
             status: 'available'
         };
         
-        createSeatElement(newSeat, sectionColor);
+        createSeatElement(newSeat);
     });
     
     // Crear elemento de asiento y añadirlo al mapa
-    function createSeatElement(seat, color) {
+    function createSeatElement(seat) {
         const seatEl = document.createElement('div');
         seatEl.className = 'seat';
         seatEl.id = `seat-${seat.id}`;
         seatEl.dataset.id = seat.id;
-        seatEl.dataset.sectionId = seat.section__id;
         seatEl.dataset.row = seat.row;
         seatEl.dataset.number = seat.number;
-        seatEl.dataset.status = seat.status;
+        seatEl.dataset.status = seat.status || 'available';
         
         // Posicionar
         seatEl.style.left = `${seat.x_position}px`;
         seatEl.style.top = `${seat.y_position}px`;
-        
-        // Color por sección
-        if (color) {
-            seatEl.style.backgroundColor = color;
-        }
         
         // Etiqueta
         seatEl.innerHTML = `${seat.row}-${seat.number}`;
@@ -184,9 +213,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('seatNumber').value = this.dataset.number;
         document.getElementById('seatStatus').value = this.dataset.status;
         
-        // Seleccionar la sección correcta
-        document.getElementById('section').value = this.dataset.sectionId;
-        
         // Habilitar botón de eliminar
         deleteSeatButton.disabled = false;
     }
@@ -209,14 +235,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const row = document.getElementById('seatRow').value;
         const number = document.getElementById('seatNumber').value;
         const status = document.getElementById('seatStatus').value;
-        const sectionId = document.getElementById('section').value;
-        const sectionColor = sectionSelect.options[sectionSelect.selectedIndex].dataset.color;
         
         selectedSeat.dataset.row = row;
         selectedSeat.dataset.number = number;
         selectedSeat.dataset.status = status;
-        selectedSeat.dataset.sectionId = sectionId;
-        selectedSeat.style.backgroundColor = sectionColor;
         selectedSeat.innerHTML = `${row}-${number}`;
     });
     
@@ -237,6 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function startDrag(e) {
         e.preventDefault();
+        e.stopPropagation();
         
         // Seleccionar este asiento
         if (selectedSeat !== this) {
@@ -292,7 +315,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             seatData.push({
                 id: seat.dataset.id > 0 ? seat.dataset.id : null, // null para nuevos
-                section_id: seat.dataset.sectionId,
                 row: seat.dataset.row,
                 number: seat.dataset.number,
                 x: x,
@@ -304,10 +326,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Enviar al servidor
         const formData = new FormData();
         formData.append('seat_data', JSON.stringify(seatData));
-        formData.append('section_id', document.getElementById('section').value);
         formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
         
-        fetch('{% url "seat_map_designer" venue.id %}', {
+        fetch(window.location.href, {
             method: 'POST',
             body: formData
         })
@@ -328,11 +349,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Modal de creación en bloque
-    const bulkCreateButton = document.getElementById('bulkCreate');
-    const bulkCreateModal = document.getElementById('bulkCreateModal');
-    const cancelBulkCreate = document.getElementById('cancelBulkCreate');
-    const createBulk = document.getElementById('createBulk');
-    
     bulkCreateButton.addEventListener('click', function() {
         bulkCreateModal.style.display = 'block';
     });
@@ -358,10 +374,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const startX = parseInt(document.getElementById('startX').value);
         const startY = parseInt(document.getElementById('startY').value);
         
-        const selectedSection = sectionSelect.options[sectionSelect.selectedIndex];
-        const sectionId = selectedSection.value;
-        const sectionColor = selectedSection.dataset.color;
-        
         // Generar filas alfabéticamente (A, B, C...)
         let rowChar = rowStart.charCodeAt(0);
         
@@ -371,7 +383,6 @@ document.addEventListener('DOMContentLoaded', function() {
             for (let n = 1; n <= seatsPerRow; n++) {
                 const newSeat = {
                     id: nextSeatId--,
-                    section__id: sectionId,
                     row: row,
                     number: n.toString(),
                     x_position: startX + (n - 1) * horizontalGap,
@@ -379,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     status: 'available'
                 };
                 
-                createSeatElement(newSeat, sectionColor);
+                createSeatElement(newSeat);
             }
         }
         

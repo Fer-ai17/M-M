@@ -165,7 +165,7 @@ def seat_map_designer(request, section_id):
             seat_id = seat_data.get('id')
             
             seat_obj = None
-            if seat_id and int(seat_id) > 0:  # Convertir a int para comparación
+            if seat_id and int(seat_id) > 0:
                 try:
                     seat_obj = Seat.objects.get(id=seat_id)
                 except Seat.DoesNotExist:
@@ -176,14 +176,13 @@ def seat_map_designer(request, section_id):
             
             seat_obj.row = seat_data.get('row', 'A')
             seat_obj.number = seat_data.get('number', '1')
-            seat_obj.x_position = seat_data.get('x_position', seat_data.get('x', 0))  # Manejar ambos nombres
-            seat_obj.y_position = seat_data.get('y_position', seat_data.get('y', 0))  # Manejar ambos nombres
+            seat_obj.x_position = seat_data.get('x', 0)
+            seat_obj.y_position = seat_data.get('y', 0)
             seat_obj.status = seat_data.get('status', 'available')
             seat_obj.save()
             
         return JsonResponse({'success': True})
     
-    # Obtener asientos de esta sección
     seats = Seat.objects.filter(section=section).values(
         'id', 'row', 'number', 'x_position', 'y_position', 'status'
     )
@@ -201,27 +200,59 @@ def venue_designer(request, venue_id):
     venue = get_object_or_404(Venue, pk=venue_id)
     
     if request.method == "POST":
-        data = json.loads(request.POST.get('section_data', '[]'))
+        section_data = json.loads(request.POST.get('section_data', '[]'))
+        seat_data = json.loads(request.POST.get('seat_data', '[]')) if 'seat_data' in request.POST else []
         
-        # Actualizar secciones existentes o crear nuevas
-        for section_data in data:
-            section_id = section_data.get('id')
+        # Procesar secciones
+        for data in section_data:
+            section_id = data.get('id')
             
-            if section_id and section_id > 0:
-                # Actualizar sección existente
-                section = Section.objects.get(id=section_id)
+            if section_id and int(section_id) > 0:
+                try:
+                    section = Section.objects.get(id=section_id)
+                except Section.DoesNotExist:
+                    section = Section(venue=venue)
             else:
-                # Crear nueva sección
                 section = Section(venue=venue)
             
-            section.name = section_data.get('name', 'Nueva Sección')
-            section.price = section_data.get('price', 0)
-            section.color = section_data.get('color', '#CCCCCC')
-            section.x_position = section_data.get('x', 0)
-            section.y_position = section_data.get('y', 0)
-            section.width = section_data.get('width', 200)
-            section.height = section_data.get('height', 150)
+            section.name = data.get('name', 'Nueva Sección')
+            section.price = data.get('price', 0)
+            section.color = data.get('color', '#CCCCCC')
+            section.x_position = data.get('x_position', 0)
+            section.y_position = data.get('y_position', 0)
+            section.width = data.get('width', 200)
+            section.height = data.get('height', 150)
             section.save()
+        
+        # Procesar asientos si los hay
+        for data in seat_data:
+            section_id = data.get('section_id')
+            
+            # Si no hay section_id o es negativo (temporal), saltamos este asiento
+            if not section_id or int(section_id) < 0:
+                continue
+                
+            try:
+                section = Section.objects.get(id=section_id)
+                
+                # Buscar si ya existe un asiento con la misma fila y número en esta sección
+                try:
+                    seat = Seat.objects.get(
+                        section=section,
+                        row=data.get('row', 'A'),
+                        number=data.get('number', '1')
+                    )
+                except Seat.DoesNotExist:
+                    seat = Seat(section=section)
+                
+                seat.row = data.get('row', 'A')
+                seat.number = data.get('number', '1')
+                seat.x_position = data.get('x_position', 0)
+                seat.y_position = data.get('y_position', 0)
+                seat.status = data.get('status', 'available')
+                seat.save()
+            except Section.DoesNotExist:
+                pass  # Ignorar asientos de secciones que no existen
         
         return JsonResponse({'success': True})
     
@@ -230,9 +261,16 @@ def venue_designer(request, venue_id):
         'x_position', 'y_position', 'width', 'height'
     )
     
+    # También obtener todos los asientos existentes
+    seats = Seat.objects.filter(section__venue=venue).values(
+        'id', 'section__id', 'row', 'number', 
+        'x_position', 'y_position', 'status'
+    )
+    
     context = {
         'venue': venue,
-        'sections_json': json.dumps(list(sections), cls=DjangoJSONEncoder)
+        'sections_json': json.dumps(list(sections), cls=DjangoJSONEncoder),
+        'seats_json': json.dumps(list(seats), cls=DjangoJSONEncoder)
     }
     return render(request, 'store/venue_designer.html', context)
 
