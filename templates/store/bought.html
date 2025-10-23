@@ -7,10 +7,10 @@
 <div style="margin-bottom:1rem; display:flex; gap:8px; align-items:center;">
   <form method="get" class="search-form" style="display:flex; flex:1; gap:8px; align-items:center;">
     <!-- Mantener filtros activos como hidden -->
-    {% if municipality_q %}<input type="hidden" name="municipality" value="{{ municipality_q }}">{% endif %}
-    {% if label %}<input type="hidden" name="label" value="{{ label }}">{% endif %}
+    {% if date_from %}<input type="hidden" name="date_from" value="{{ date_from }}">{% endif %}
+    {% if date_to %}<input type="hidden" name="date_to" value="{{ date_to }}">{% endif %}
     
-    <input type="search" name="q" placeholder="Buscar..." value="{{ q }}" style="flex:1;">
+    <input type="search" name="q" placeholder="Buscar evento..." value="{{ q }}" style="flex:1;">
     <button type="submit">Buscar</button>
   </form>
 
@@ -21,7 +21,7 @@
       <path d="M3 6h18M6 12h12M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </svg>
     Filtrar
-    {% if municipality_q or label %}
+    {% if date_from or date_to %}
       <span style="background:#007bff; color:white; border-radius:50%; display:inline-block; width:16px; height:16px; font-size:10px; line-height:16px; text-align:center;">!</span>
     {% endif %}
   </button>
@@ -31,7 +31,7 @@
 <div id="filter-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100;">
   <div id="filter-modal" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:20px; border-radius:8px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; z-index:101;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-      <h3 style="margin:0;">Filtros de búsqueda</h3>
+      <h3 style="margin:0;">Filtros por fecha</h3>
       <button id="close-filter" style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
     </div>
     
@@ -40,97 +40,42 @@
       {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
       
       <div style="margin-bottom:15px;">
-        <label style="display:block; margin-bottom:5px; font-weight:500;">Municipio</label>
-        <select name="municipality" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-          <option value="">Todos los municipios</option>
-          {% for m in municipalities %}
-            <option value="{{ m.id }}" {% if m.id|stringformat:"s" == municipality_q %}selected{% endif %}>{{ m.name }}</option>
-          {% endfor %}
-        </select>
+        <label style="display:block; margin-bottom:5px; font-weight:500;">Fecha desde</label>
+        <input type="date" name="date_from" value="{{ date_from }}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
       </div>
 
       <div style="margin-bottom:15px;">
-        <label style="display:block; margin-bottom:5px; font-weight:500;">Tipo de evento</label>
-        <select name="label" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-          <option value="">Todos los tipos</option>
-          <option value="proximamente" {% if label == "proximamente" %}selected{% endif %}>Próximamente</option>
-          <option value="preventa" {% if label == "preventa" %}selected{% endif %}>Preventa</option>
-          <option value="ninguno" {% if label == "ninguno" %}selected{% endif %}>Ninguno</option>
-        </select>
+        <label style="display:block; margin-bottom:5px; font-weight:500;">Fecha hasta</label>
+        <input type="date" name="date_to" value="{{ date_to }}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
       </div>
       
       <div style="display:flex; gap:10px; margin-top:20px;">
         <button type="submit" style="flex:1; background:#007bff; color:white; border:none; padding:10px; border-radius:4px; cursor:pointer;">Aplicar filtros</button>
-        <a href="{% url 'bought_list' %}" style="flex:1; background:#f8f9fa; color:#333; border:1px solid #ddd; padding:10px; border-radius:4px; text-align:center; text-decoration:none;">Limpiar</a>
+        <a href="{% url 'bought' %}" style="flex:1; background:#f8f9fa; color:#333; border:1px solid #ddd; padding:10px; border-radius:4px; text-align:center; text-decoration:none;">Limpiar</a>
       </div>
     </form>
   </div>
 </div>
 
 <!-- Indicador de filtros activos -->
-{% if municipality_q or label %}
+{% if date_from or date_to %}
 <div style="margin-bottom:15px; padding:8px 12px; background:#f8f9fa; border-radius:4px; display:flex; align-items:center; justify-content:space-between;">
   <div>
     <span style="font-weight:500;">Filtros aplicados:</span>
-    {% if municipality_q %}
-      {% for m in municipalities %}
-        {% if m.id|stringformat:"s" == municipality_q %}
-          <span style="display:inline-block; background:#e7f3ff; border:1px solid #3a99ffff; padding:2px 8px; border-radius:12px; margin:0 5px;">
-            {{ m.name }}
-          </span>
-        {% endif %}
-      {% endfor %}
+    {% if date_from %}
+      <span style="display:inline-block; background:#e7f3ff; border:1px solid #3a99ffff; padding:2px 8px; border-radius:12px; margin:0 5px;">
+        Desde: {{ date_from }}
+      </span>
     {% endif %}
-    {% if label %}
-      {% if label == "pendiente" %}
-        <span style="display:inline-block; background:#fff3cd; border:1px solid #fcde84ff; padding:2px 8px; border-radius:12px; margin:0 5px;">
-          Pendiente
-        </span>
-      {% elif label == "completado" %}
-        <span style="display:inline-block; background:#d4edda; border:1px solid #6ae086ff; padding:2px 8px; border-radius:12px; margin:0 5px;">
-          Completado
-        </span>
-      {% elif label == "ninguno" %}
-        <span style="display:inline-block; background:#f5f5f5; border:1px solid #8db9e6ff; padding:2px 8px; border-radius:12px; margin:0 5px;">
-          Ninguno
-        </span>
-      {% endif %}
+    {% if date_to %}
+      <span style="display:inline-block; background:#e7f3ff; border:1px solid #3a99ffff; padding:2px 8px; border-radius:12px; margin:0 5px;">
+        Hasta: {{ date_to }}
+      </span>
     {% endif %}
   </div>
-  <a href="{% url 'bought_list' %}" style="color:#6c757d; text-decoration:none; font-size:14px;">Eliminar filtros</a>
+  <a href="{% url 'bought' %}" style="color:#6c757d; text-decoration:none; font-size:14px;">Eliminar filtros</a>
 </div>
 {% endif %}
-
-<div class="product-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px;">
-  {% for event in events %}
-    <div class="product-card" style="border:1px solid #eee; padding:10px; border-radius:6px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-      {% if event.label != "ninguno" %}
-        <span class="badge" style="background:{% if event.label == 'pendiente' %}#001570{% elif event.label == 'completado' %}#CFD406{% else %}#f5f5f5{% endif %}; padding:2px 6px; border-radius:3px; font-size:12px; display:inline-block; margin-bottom:5px;">
-          {{ event.get_label_display }}
-        </span>
-      {% endif %}
-
-      <div class="product-info">
-        <h3 style="margin:8px 0; font-size:16px;">
-          <a href="{% url 'events_detail' event.pk %}" style="text-decoration:none; color:#212529;">{{ event.name }}</a>
-        </h3>
-
-        <p class="desc" style="color:#555; margin:8px 0; font-size:14px;">{{ event.description|default:"Sin descripción"|truncatechars:80 }}</p>
-        <p class="stock" style="font-size:0.9rem; color:#333; margin:5px 0;">Disponibles: {{ event.location.stock|default:"N/D" }}</p>
-
-        {% if event.location.stock|default:0 > 0 %}
-          <a href="{% url 'add_to_cart' event.pk %}" class="btn" style="display:inline-block;margin-top:8px;padding:6px 10px;background:#007bff;color:#fff;border-radius:4px;text-decoration:none; border:none; width:100%; text-align:center;">Añadir al carrito</a>
-        {% else %}
-          <p class="out-of-stock" style="color:#cc0000;margin-top:8px; text-align:center; padding:6px; background:#f8d7da; border-radius:4px;">Agotado</p>
-        {% endif %}
-      </div>
-    </div>
-  {% empty %}
-    <div style="grid-column:1/-1; text-align:center; padding:20px; background:#f8f9fa; border-radius:8px;">
-      <p style="margin:0; color:#6c757d;">No hay eventos que coincidan con la búsqueda.</p>
-    </div>
-  {% endfor %}
-</div>
 
 <table class="table">
   <thead>
@@ -147,14 +92,14 @@
     {% for bought in bought_items %}
       <tr>
         <td>#{{ bought.id }}</td>
-        <td>{{ bought.event.name }}</td>
-        <td>{{ bought.event.location }}</td>
+        <td>{{ bought.tickets.events.name }}</td>
+        <td>{{ bought.tickets.events.location.name }}</td>
         <td>{{ bought.created_at|date:"d/m/Y H:i" }}</td>
         <td>${{ bought.total }}</td>
         <td><a href="{% url 'bought_detail' bought.id %}">Ver detalles</a></td>
       </tr>
     {% empty %}
-      <tr><td colspan="6">No hay compras todavía.</td></tr>
+      <tr><td colspan="6">No hay compras que coincidan con los filtros.</td></tr>
     {% endfor %}
   </tbody>
 </table>

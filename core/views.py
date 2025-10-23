@@ -1,7 +1,7 @@
 import json
 from django.shortcuts import render, redirect, get_object_or_404
 from urllib3 import request
-from .models import Events, Tickets, Bought, Location, Municipality, Venue, Section, Seat 
+from .models import Events, Tickets, Bought, Location, Municipality, Venue, Section, Seat, Profile
 from decimal import Decimal, InvalidOperation
 from .cart import Cart
 from django.contrib import messages
@@ -395,9 +395,40 @@ def delete_events(request, pk):
 
 @login_required
 def bought(request):
-    orders = Bought.objects.all().order_by("-created_at")
+    # Obtener el perfil del usuario actual
+    try:
+        user_profile = Profile.objects.get(user=request.user)
+    except Profile.DoesNotExist:
+        return render(request, 'store/bought.html', {'bought_items': []})
+        
+    # Consulta base
+    bought_items = Bought.objects.filter(profile=user_profile).order_by('-created_at')
     
-    return render(request, "store/bought.html", {"orders": orders})
+    # Obtener parámetros de búsqueda y filtros
+    q = request.GET.get('q', '')  # Búsqueda por nombre de evento
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    
+    # Aplicar filtro de búsqueda por nombre de evento
+    if q:
+        # Usar prefetch_related para cargar los tickets relacionados de forma eficiente
+        bought_items = bought_items.filter(tickets__events__name__icontains=q).distinct()
+    
+    # Aplicar filtro de fecha desde
+    if date_from:
+        bought_items = bought_items.filter(created_at__date__gte=date_from)
+    
+    # Aplicar filtro de fecha hasta
+    if date_to:
+        bought_items = bought_items.filter(created_at__date__lte=date_to)
+    
+    context = {
+        'bought_items': bought_items,
+        'q': q,
+        'date_from': date_from,
+        'date_to': date_to,
+    }
+    return render(request, 'store/bought.html', context)
 
 @staff_member_required
 def bought_detail(request, pk):
