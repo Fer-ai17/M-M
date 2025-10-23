@@ -46,3 +46,27 @@ class Cart:
 
     def total(self):
         return sum(float(item["price"]) * item["quantity"] for item in self.cart.values())
+
+    def add(self, events, quantity=1, seat_ids=None):
+        """
+        Añadir un producto al carrito o incrementar su cantidad.
+        Si se pasan seat_ids, guardar los asientos seleccionados.
+        """
+        events_id = str(events.id)
+        
+        if events_id not in self.cart:
+            self.cart[events_id] = {
+                'quantity': 0, 
+                'price': str(events.price),
+                'seat_ids': []
+            }
+        
+        if seat_ids:
+            # Reemplazar los asientos (modo selección de asientos)
+            self.cart[events_id]['seat_ids'] = seat_ids
+            self.cart[events_id]['quantity'] = len(seat_ids)
+        else:
+            # Modo tradicional (incremento de cantidad)
+            self.cart[events_id]['quantity'] += quantity
+        
+        self.save()

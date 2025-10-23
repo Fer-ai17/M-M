@@ -2,17 +2,18 @@
 {% block title %}Compra #{{ order.id }}{% endblock %}
 
 {% block content %}
-<h2>Compra #{{ order.id }}</h2>
-<p><b>Cliente:</b> {{ order.customer_name }}</p>
-<p><b>Email:</b> {{ order.customer_email }}</p>
-<p><b>Fecha:</b> {{ order.created_at|date:"d/m/Y H:i" }}</p>
+<h2>Compra #{{ bought.id }}</h2>
+<p><b>Cliente:</b> {{ bought.customer_name }}</p>
+<p><b>Email:</b> {{ bought.customer_email }}</p>
+<p><b>Fecha:</b> {{ bought.created_at|date:"d/m/Y H:i" }}</p>
 
 <h3>Eventos</h3>
 <table class="table">
   <thead>
     <tr>
       <th>Evento</th>
-      <th>Cantidad</th>
+      <th>Cantidad Boletas</th>
+      <th>Localidad</th>
       <th>Precio</th>
       <th>Total</th>
     </tr>
@@ -22,6 +23,7 @@
       <tr>
         <td>{{ item.event.name }}</td>
         <td>{{ item.quantity }}</td>
+        <td>{{ item.location }}</td>
         <td>${{ item.price }}</td>
         <td>${{ item.total_price }}</td>
       </tr>
@@ -29,6 +31,6 @@
   </tbody>
 </table>
 
-<p><b>Total del pedido:</b> ${{ order.total }}</p>
-<a href="{% url 'order_list' %}">← Volver a pedidos</a>
+<p><b>Total del pedido:</b> ${{ bought.total }}</p>
+<a href="{% url 'bought' %}">← Volver a compras</a>
 {% endblock %}
