@@ -46,6 +46,8 @@ class EditForm(forms.ModelForm):
 class EventsForm(forms.ModelForm):
     class Meta:
         model = Events
+        fields = ["name", "description", "start_date", "end_date", "location", "artist"]
+        fields = ["name", "description", "start_date", "end_date", "location", "artist", "label"]
         fields = ["name", "description", "start_date", "end_date", "location", "artist", "place", "label"]
 
         widgets = {
@@ -64,6 +66,8 @@ class EventsForm(forms.ModelForm):
         self.fields["end_date"].input_formats = ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S")
 
 class ArtistForm(forms.ModelForm):
+    events = forms.ModelChoiceField(queryset=Events.objects.all(), required=False, widget=forms.CheckboxSelectMultiple)
+    
     class Meta:
         model = Artist
         fields = ["name", "birth_city", "musical_gender"]

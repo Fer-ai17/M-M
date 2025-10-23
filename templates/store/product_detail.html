@@ -1,19 +1,37 @@
-{% extends "base.html" %}
+{% extends "base_admin.html" %}
 {% block title %}{{ events.name }}{% endblock %}
 
 {% block content %}
-<div class="product-detail">
-
-  <div class="product-detail-info">
-    <h2>{{ events.name }}</h2>
-    <p class="price">
-      Precio: {{ converted_price }}
-      {% if currency != "COP" %}
-        <small class="price-base">(~{{ base_price }})</small>
+<div class="card">
+  <div class="row g-0">
+    <div class="col-md-5">
+      {% if events.image %}
+        <img src="{{ events.image.url }}" class="img-fluid rounded-start" alt="{{ events.name }}">
+      {% else %}
+        <div class="bg-light d-flex align-items-center justify-content-center" style="height:100%;min-height:240px;">
+          <span class="text-muted">Sin imagen</span>
+        </div>
       {% endif %}
-    </p>
-    <p class="stock">Disponibles: {{ events.stock }}</p>
-    <p class="desc">{{ events.description }}</p>
+    </div>
+
+    <div class="col-md-7">
+      <div class="card-body d-flex flex-column h-100">
+        <h2 class="card-title mb-2">{{ events.name }}</h2>
+
+        <div class="mb-2">
+          <span class="h5 fw-bold">{{ converted_price }}</span>
+          {% if currency != "COP" %}
+            <small class="text-muted">(~{{ base_price }})</small>
+          {% endif %}
+        </div>
+
+        <p class="mb-2"><strong>Disponibles:</strong> {{ events.stock }}</p>
+
+        {% if events.location %}
+          <p class="mb-2 text-muted small"><strong>Ubicación:</strong> {{ events.location.name }}</p>
+        {% endif %}
+
+        <p class="mb-3">{{ events.description|linebreaksbr }}</p>
 
     {% if events.has_seat_map and events.venue %}
     <div class="seat-map-button">
