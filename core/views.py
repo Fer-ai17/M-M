@@ -584,6 +584,15 @@ def checkout(request):
             for e in errors:
                 messages.error(request, e)
             return redirect("cart_detail")
+        
+        #decrementar stock
+        for item in cart:
+            events = item["events"]
+            events.stock -= item["quantity"]
+            events.save()
+        Tickets.objects.filter(events=events).update(available_seats=F('available_seats') - item["quantity"])
+        
+            
 
         cart.clear()
         messages.success(request, "Compra realizada correctamente.")
