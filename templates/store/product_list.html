@@ -1,8 +1,10 @@
-{% extends "base.html" %}
+{% extends "base_admin.html" %}
 {% block title %}Tienda{% endblock %}
 
 {% block content %}
-<h1>Nuestros Eventos</h1>
+<div class="admin-page container">
+  <header class="admin-header d-flex align-items-center justify-content-between mb-3">
+    <h1 class="admin-title">Nuestros Eventos</h1>
 
 <div style="margin-bottom:1rem; display:flex; gap:8px; align-items:center;">
   <form method="get" class="search-form" style="display:flex; flex:1; gap:8px; align-items:center;">

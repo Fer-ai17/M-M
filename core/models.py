@@ -1,6 +1,6 @@
 from decimal import Decimal
 from django.db import models
-from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
 
 class Role(models.Model):
@@ -37,6 +37,11 @@ class Location(models.Model):
     loc_code = models.CharField(max_length=50, unique=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.PositiveIntegerField(default=0)
+    label = models.CharField(max_length=20, choices=[
+        ("nuevo", "Nuevo"),
+        ("preventa", "Preventa"),
+        ("ninguno", "Ninguno"),
+    ], default="ninguno")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -82,6 +87,15 @@ class Tickets(models.Model):
         return f"{self.events.name} - {self.quantity}"
 
 
+    def clean(self):
+        if self.quantity > 10:
+            raise ValidationError("No se pueden comprar más de 10 boletas por pedido.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+#Compras
 class Bought(models.Model):
     STATUS_CHOICES = [
         ("pendiente", "Pendiente"),
@@ -114,7 +128,7 @@ class MusicalGender(models.Model):
 
 
 class Artist(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=200)
     birth_city = models.CharField(max_length=100)
     musical_gender = models.ForeignKey(MusicalGender, on_delete=models.CASCADE)
 
