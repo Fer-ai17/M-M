@@ -420,7 +420,8 @@ def events_detail(request, pk):
     
     context = {
         "events": events,
-        "base_price": format_price(events.price, "COP", "es_CO"),
+        # Usar location.price en lugar de events.price
+        "base_price": format_price(events.location.price, "COP", "es_CO"),
     }
     return render(request, "store/product_detail.html", context)
 
@@ -476,7 +477,7 @@ def add_to_cart(request, pk):
     cart = Cart(request)
     events = get_object_or_404(Events, pk=pk)
 
-    # cantidad a añadir: si tu UI envía quantity en POST, úsala; por defecto 1
+    # cantidad a añadir
     add_qty = 1
     if request.method == "POST":
         try:
@@ -498,13 +499,21 @@ def add_to_cart(request, pk):
         messages.error(request, "No puede añadir más de 10 boletas en un solo pedido.")
         return redirect("cart_detail")
     
-    if add_qty > events.stock:
+    # Verificar stock - el stock está en Location, no en Events
+    if add_qty > events.location.stock:
         messages.error(request, "No hay suficiente stock disponible para la cantidad solicitada.")
         return redirect("cart_detail")
 
-    # añadir al carrito (ajusta según tu implementación de Cart)
+    # añadir al carrito
     cart.add(events, quantity=add_qty)
     messages.success(request, "Boleta(s) añadidas al carrito.")
+    return redirect("cart_detail")
+
+def remove_from_cart(request, pk):
+    cart = Cart(request)
+    events = get_object_or_404(Events, pk=pk)
+    cart.remove(events)
+    messages.success(request, "Boleta(s) eliminadas del carrito.")
     return redirect("cart_detail")
 
 def cart_detail(request):
@@ -519,7 +528,8 @@ def cart_detail(request):
         quantity = item['quantity']
         seat_ids = item.get('seat_ids', [])
         
-        price = events.price
+        # Usar location.price en lugar de events.price
+        price = events.location.price
         item_total = price * quantity
         total += item_total
         
@@ -551,7 +561,8 @@ def checkout(request):
     total_qty = 0
     for item in cart:
         events = item['events']
-        price = events.price
+        # Usar location.price en lugar de events.price
+        price = events.location.price
         total += price * item['quantity']
 
     if request.method == "POST":
@@ -572,11 +583,14 @@ def checkout(request):
                     order=order,
                     events=item["events"],
                     quantity=item["quantity"],
-                    price=item["events"].price,
+                    # Usar location.price en lugar de events.price
+                    price=item["events"].location.price,
                 )
                 events = item["events"]
-                events.stock -= item["quantity"]
-                events.save()
+                # Actualizar el stock en location en lugar de en events
+                location = events.location
+                location.stock -= item["quantity"]
+                location.save()
             except Exception as e:
                 errors.append(str(e))
 
@@ -585,15 +599,9 @@ def checkout(request):
                 messages.error(request, e)
             return redirect("cart_detail")
         
-        #decrementar stock
-        for item in cart:
-            events = item["events"]
-            events.stock -= item["quantity"]
-            events.save()
-        Tickets.objects.filter(events=events).update(available_seats=F('available_seats') - item["quantity"])
+        # No es necesario decrementar el stock dos veces
+        # Ya se hizo en el bucle anterior
         
-            
-
         cart.clear()
         messages.success(request, "Compra realizada correctamente.")
         return render(request, "store/checkout_done.html", {"order": order})

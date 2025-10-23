@@ -1,3 +1,7 @@
+from core.models import Events
+from decimal import Decimal
+
+
 class Cart:
     def __init__(self, request):
         self.session = request.session
@@ -6,24 +10,35 @@ class Cart:
             cart = self.session["cart"] = {}
         self.cart = cart
 
-    def add(self, product, quantity=1):
-        product_id = str(product.id)
-        if product_id not in self.cart:
-            self.cart[product_id] = {"quantity": 0, "price": str(product.price)}
-
-        # Verificar stock antes de añadir
-        if self.cart[product_id]["quantity"] + quantity <= product.stock:
-            self.cart[product_id]["quantity"] += quantity
+    def add(self, events, quantity=1, update_quantity=False, seat_ids=None):
+        """
+        Añadir un evento al carrito o actualizar su cantidad
+        """
+        events_id = str(events.id)
+        
+        if events_id not in self.cart:
+            # Convertir el Decimal a string para que sea serializable
+            price = str(events.location.price)
+            self.cart[events_id] = {
+                'quantity': 0,
+                'price': price,
+            }
+        
+        if update_quantity:
+            self.cart[events_id]['quantity'] = quantity
         else:
-            self.cart[product_id]["quantity"] = product.stock 
-
+            self.cart[events_id]['quantity'] += quantity
+        
+        # Si hay seat_ids, guardarlos en el carrito
+        if seat_ids:
+            self.cart[events_id]['seat_ids'] = seat_ids
+        
         self.save()
 
-
-    def remove(self, product):
-        product_id = str(product.id)
-        if product_id in self.cart:
-            del self.cart[product_id]
+    def remove(self, events):
+        events_id = str(events.id)
+        if events_id in self.cart:
+            del self.cart[events_id]
             self.save()
 
     def clear(self):
@@ -31,42 +46,43 @@ class Cart:
         self.session.modified = True
 
     def save(self):
-        self.session["cart"] = self.cart
+        # Asegurarse de que todos los valores son serializables
+        cart_copy = self.cart.copy()
+        for key, item in cart_copy.items():
+            if 'price' in item and isinstance(item['price'], Decimal):
+                item['price'] = str(item['price'])
+            if 'total_price' in item and isinstance(item['total_price'], Decimal):
+                item['total_price'] = str(item['total_price'])
+        
+        # Guardar en la sesión con la clave correcta
+        self.session["cart"] = cart_copy
         self.session.modified = True
 
     def __iter__(self):
-        from .models import Product
-        product_ids = self.cart.keys()
-        products = Product.objects.filter(id__in=product_ids)
-        for product in products:
-            cart_item = self.cart[str(product.id)]
-            cart_item["product"] = product
-            cart_item["total_price"] = float(cart_item["price"]) * cart_item["quantity"]
-            yield cart_item
+        """
+        Iterar sobre los elementos del carrito y obtener los eventos de la base de datos
+        """
+        events_ids = self.cart.keys()
+        # Obtener los eventos y añadirlos al carrito
+        events_db = Events.objects.filter(id__in=events_ids)
+        
+        # Crear una copia temporal para la iteración
+        temp_cart = {}
+        for events_id, item in self.cart.items():
+            temp_cart[events_id] = item.copy()
+        
+        # Añadir los objetos Events a la copia temporal
+        for events in events_db:
+            events_id = str(events.id)
+            if events_id in temp_cart:
+                temp_cart[events_id]['events'] = events
+    
+        # Iterar sobre la copia temporal
+        for item in temp_cart.values():
+            if 'price' in item:
+                item['price'] = Decimal(item['price'])
+            item['total_price'] = item['price'] * item['quantity']
+            yield item
 
     def total(self):
         return sum(float(item["price"]) * item["quantity"] for item in self.cart.values())
-
-    def add(self, events, quantity=1, seat_ids=None):
-        """
-        Añadir un producto al carrito o incrementar su cantidad.
-        Si se pasan seat_ids, guardar los asientos seleccionados.
-        """
-        events_id = str(events.id)
-        
-        if events_id not in self.cart:
-            self.cart[events_id] = {
-                'quantity': 0, 
-                'price': str(events.price),
-                'seat_ids': []
-            }
-        
-        if seat_ids:
-            # Reemplazar los asientos (modo selección de asientos)
-            self.cart[events_id]['seat_ids'] = seat_ids
-            self.cart[events_id]['quantity'] = len(seat_ids)
-        else:
-            # Modo tradicional (incremento de cantidad)
-            self.cart[events_id]['quantity'] += quantity
-        
-        self.save()
