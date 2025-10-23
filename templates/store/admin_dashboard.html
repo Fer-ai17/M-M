@@ -47,6 +47,25 @@
   </tbody>
 </table>
 
+<div class="admin-section">
+    <h3>Gestión de lugares y mapas de asientos</h3>
+    <a href="{% url 'admin:core_venue_changelist' %}" class="btn btn-primary">Gestionar lugares</a>
+    <a href="{% url 'admin:core_section_changelist' %}" class="btn btn-primary">Gestionar secciones</a>
+    
+    <!-- Lista de venues con enlace al diseñador -->
+    <div class="venue-list">
+        <h4>Lugares disponibles:</h4>
+        <ul>
+            {% for venue in venues %}
+            <li>
+                {{ venue.name }}
+                <a href="{% url 'venue_designer' venue.id %}" class="btn btn-sm">Diseñar Secciones</a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
 <!-- Acceso rápido -->
 <div class="admin-menu">
   <a href="{% url 'create_events' %}" class="card-link">

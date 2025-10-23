@@ -1,19 +1,68 @@
-{% extends "../base.html" %}
+{% extends "base.html" %}
+{% block title %}Carrito{% endblock %}
+
 {% block content %}
-<h1>Carrito</h1>
-<ul>
-  {% for item in converted_items %}
-    <div class="cart-item">
-      <h4>{{ item.event.name }}</h4>
-      <p>Precio: {{ item.converted_price }}</p>
-      <p>Localidad: {{ item.event.location }}</p>
-      <p>Cantidad: {{ item.quantity }}</p>
-      <p>Total: {{ item.converted_total }}</p>
-    </div>
-  {% endfor %}
-  <div class="cart-total">
-    <strong>Total: {{ total_converted }}</strong>
-  </div>
-</ul>
-<a href="{% url 'checkout' %}" class="btn">Proceder al pago</a>
+<h1>Tu carrito</h1>
+
+{% if cart_items %}
+<table class="cart-table">
+    <thead>
+        <tr>
+            <th>Evento</th>
+            <th>Cantidad</th>
+            <th>Asientos</th>
+            <th>Precio</th>
+            <th>Total</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in cart_items %}
+        <tr>
+            <td>{{ item.events.name }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>
+                {% if item.seats %}
+                <ul class="seat-list">
+                    {% for seat in item.seats %}
+                    <li>{{ seat.section.name }} - Fila {{ seat.row }} Asiento {{ seat.number }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <em>Entrada general</em>
+                {% endif %}
+            </td>
+            <td>{{ item.price }}</td>
+            <td>{{ item.total }}</td>
+            <td>
+                <a href="{% url 'remove_from_cart' item.events.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr>
+            <td colspan="4" class="text-right"><strong>Total:</strong></td>
+            <td><strong>{{ total }}</strong></td>
+            <td></td>
+        </tr>
+    </tfoot>
+</table>
+
+<div class="cart-actions">
+    <a href="{% url 'events_list' %}" class="btn btn-secondary">Seguir comprando</a>
+    <a href="{% url 'checkout' %}" class="btn btn-primary">Proceder al pago</a>
+</div>
+{% else %}
+<p>Tu carrito está vacío</p>
+<a href="{% url 'events_list' %}" class="btn btn-primary">Ver eventos</a>
+{% endif %}
+
+<style>
+.seat-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+</style>
 {% endblock %}

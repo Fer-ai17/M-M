@@ -33,16 +33,21 @@
 
         <p class="mb-3">{{ events.description|linebreaksbr }}</p>
 
-        <div class="mt-auto d-flex gap-2">
-          {% if events.stock|default:0 > 0 %}
-            <a href="{% url 'add_to_cart' events.id %}" class="btn btn-primary">Añadir al carrito</a>
-          {% else %}
-            <button class="btn btn-secondary" disabled>Tickets agotados</button>
-          {% endif %}
-          <a href="{% url 'events_list' %}" class="btn btn-outline-secondary">Volver</a>
-        </div>
-      </div>
+    {% if events.has_seat_map and events.venue %}
+    <div class="seat-map-button">
+        <a href="{% url 'seat_map' events.id %}" class="btn btn-primary">Seleccionar asientos</a>
     </div>
+    {% else %}
+    <div class="add-to-cart">
+        <a href="{% url 'add_to_cart' events.id %}" class="btn btn-primary">Añadir al carrito</a>
+    </div>
+    {% endif %}
+
+    {% if events.stock > 0 %}
+      <a href="{% url 'add_to_cart' events.id %}" class="btn">Añadir al carrito</a>
+    {% else %}
+      <p class="out-of-stock">Tickets agotados</p>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

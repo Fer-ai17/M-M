@@ -1,10 +1,8 @@
-{% extends "base_admin.html" %}
-{% block title %}Tienda{% endblock %}
+{% extends "base.html" %}
+{% block title %}Pedidos{% endblock %}
 
 {% block content %}
-<div class="admin-page container">
-  <header class="admin-header d-flex align-items-center justify-content-between mb-3">
-    <h1 class="admin-title">Nuestros Eventos</h1>
+<h2>Historial de compras</h2>
 
 <div style="margin-bottom:1rem; display:flex; gap:8px; align-items:center;">
   <form method="get" class="search-form" style="display:flex; flex:1; gap:8px; align-items:center;">
@@ -63,7 +61,7 @@
       
       <div style="display:flex; gap:10px; margin-top:20px;">
         <button type="submit" style="flex:1; background:#007bff; color:white; border:none; padding:10px; border-radius:4px; cursor:pointer;">Aplicar filtros</button>
-        <a href="{% url 'events_list' %}" style="flex:1; background:#f8f9fa; color:#333; border:1px solid #ddd; padding:10px; border-radius:4px; text-align:center; text-decoration:none;">Limpiar</a>
+        <a href="{% url 'bought_list' %}" style="flex:1; background:#f8f9fa; color:#333; border:1px solid #ddd; padding:10px; border-radius:4px; text-align:center; text-decoration:none;">Limpiar</a>
       </div>
     </form>
   </div>
@@ -84,13 +82,13 @@
       {% endfor %}
     {% endif %}
     {% if label %}
-      {% if label == "proximamente" %}
+      {% if label == "pendiente" %}
         <span style="display:inline-block; background:#fff3cd; border:1px solid #fcde84ff; padding:2px 8px; border-radius:12px; margin:0 5px;">
-          Próximamente
+          Pendiente
         </span>
-      {% elif label == "preventa" %}
+      {% elif label == "completado" %}
         <span style="display:inline-block; background:#d4edda; border:1px solid #6ae086ff; padding:2px 8px; border-radius:12px; margin:0 5px;">
-          Preventa
+          Completado
         </span>
       {% elif label == "ninguno" %}
         <span style="display:inline-block; background:#f5f5f5; border:1px solid #8db9e6ff; padding:2px 8px; border-radius:12px; margin:0 5px;">
@@ -99,7 +97,7 @@
       {% endif %}
     {% endif %}
   </div>
-  <a href="{% url 'events_list' %}" style="color:#6c757d; text-decoration:none; font-size:14px;">Eliminar filtros</a>
+  <a href="{% url 'bought_list' %}" style="color:#6c757d; text-decoration:none; font-size:14px;">Eliminar filtros</a>
 </div>
 {% endif %}
 
@@ -107,7 +105,7 @@
   {% for event in events %}
     <div class="product-card" style="border:1px solid #eee; padding:10px; border-radius:6px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
       {% if event.label != "ninguno" %}
-        <span class="badge" style="background:{% if event.label == 'proximamente' %}#001570{% elif event.label == 'preventa' %}#CFD406{% else %}#f5f5f5{% endif %}; padding:2px 6px; border-radius:3px; font-size:12px; display:inline-block; margin-bottom:5px;">
+        <span class="badge" style="background:{% if event.label == 'pendiente' %}#001570{% elif event.label == 'completado' %}#CFD406{% else %}#f5f5f5{% endif %}; padding:2px 6px; border-radius:3px; font-size:12px; display:inline-block; margin-bottom:5px;">
           {{ event.get_label_display }}
         </span>
       {% endif %}
@@ -133,6 +131,33 @@
     </div>
   {% endfor %}
 </div>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Evento</th>
+      <th>Ubicación</th>
+      <th>Fecha</th>
+      <th>Total</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for bought in bought_items %}
+      <tr>
+        <td>#{{ bought.id }}</td>
+        <td>{{ bought.event.name }}</td>
+        <td>{{ bought.event.location }}</td>
+        <td>{{ bought.created_at|date:"d/m/Y H:i" }}</td>
+        <td>${{ bought.total }}</td>
+        <td><a href="{% url 'bought_detail' bought.id %}">Ver detalles</a></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6">No hay compras todavía.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 
 <script>
   (function(){

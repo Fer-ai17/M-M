@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Selecciona tus asientos - {{ event.name }}{% endblock %}
+
+{% block content %}
+<div class="seat-map-container">
+    <h1>Selecciona tus asientos para: {{ event.name }}</h1>
+    
+    <div class="seat-map-legend">
+        <div class="legend-item">
+            <div class="seat available"></div> Disponible
+        </div>
+        <div class="legend-item">
+            <div class="seat selected"></div> Seleccionado
+        </div>
+        <div class="legend-item">
+            <div class="seat reserved"></div> Reservado
+        </div>
+        <div class="legend-item">
+            <div class="seat sold"></div> Vendido
+        </div>
+    </div>
+    
+    <!-- Secciones y precios -->
+    <div class="sections-info">
+        <h3>Secciones:</h3>
+        <div class="section-list">
+            {% for section in sections %}
+            <div class="section-item">
+                <div class="section-color" style="background-color: {{ section.color }}"></div>
+                <div class="section-name">{{ section.name }}</div>
+                <div class="section-price">${{ section.price }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="stage">ESCENARIO</div>
+    
+    <div class="seat-map" id="seatMap">
+        <!-- Los asientos se cargarán dinámicamente con JS -->
+    </div>
+    
+    <div class="selected-seats-summary">
+        <h3>Asientos seleccionados</h3>
+        <ul id="selectedSeatsList"></ul>
+        <p>Total: <span id="totalPrice">$0</span></p>
+        <form id="reserveForm" action="{% url 'reserve_seats' event.id %}" method="POST">
+            {% csrf_token %}
+            <button type="submit" id="reserveButton" disabled class="btn-primary">Continuar</button>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const seatMap = document.getElementById('seatMap');
+    const selectedList = document.getElementById('selectedSeatsList');
+    const totalPriceEl = document.getElementById('totalPrice');
+    const reserveButton = document.getElementById('reserveButton');
+    const reservationSessionId = "{{ reservation_session_id }}";
+    
+    // Datos de asientos
+    const seatData = {{ seats_json|safe }};
+    const selectedSeats = [];
+    
+    // Inicializar mapa
+    initializeSeatMap();
+    
+    function initializeSeatMap() {
+        seatData.forEach(seat => {
+            const seatEl = document.createElement('div');
+            seatEl.className = `seat ${seat.status}`;
+            seatEl.id = `seat-${seat.id}`;
+            
+            // Configurar atributos
+            seatEl.dataset.seatId = seat.id;
+            seatEl.dataset.row = seat.row;
+            seatEl.dataset.number = seat.number;
+            seatEl.dataset.section = seat.section.name;
+            seatEl.dataset.price = seat.section.price;
+            
+            // Posicionar
+            seatEl.style.left = `${seat.x_position}px`;
+            seatEl.style.top = `${seat.y_position}px`;
+            seatEl.style.backgroundColor = seat.section.color;
+            
+            // Solo permitir clic en asientos disponibles
+            if (seat.status === 'available') {
+                seatEl.addEventListener('click', () => toggleSeat(seatEl, seat));
+            }
+            
+            // Tooltip con info
+            seatEl.title = `${seat.section.name} - Fila ${seat.row} Asiento ${seat.number} - $${seat.section.price}`;
+            
+            seatMap.appendChild(seatEl);
+        });
+    }
+    
+    function toggleSeat(seatEl, seat) {
+        const isSelected = seatEl.classList.contains('selected');
+        const action = isSelected ? 'deselect' : 'select';
+        
+        // Optimistic UI update
+        if (action === 'select') {
+            seatEl.classList.remove('available');
+            seatEl.classList.add('selected');
+            selectedSeats.push({
+                id: seat.id,
+                section: seat.section.name,
+                row: seat.row,
+                number: seat.number,
+                price: seat.section.price
+            });
+        } else {
+            seatEl.classList.remove('selected');
+            seatEl.classList.add('available');
+            const index = selectedSeats.findIndex(s => s.id === seat.id);
+            if (index !== -1) selectedSeats.splice(index, 1);
+        }
+        
+        updateSummary();
+        
+        // Llamar a la API para marcar/desmarcar el asiento
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        fetch(`/seats/${seat.id}/toggle/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                // Si falla, revertir el cambio en UI
+                if (action === 'select') {
+                    seatEl.classList.remove('selected');
+                    seatEl.classList.add('available');
+                    const index = selectedSeats.findIndex(s => s.id === seat.id);
+                    if (index !== -1) selectedSeats.splice(index, 1);
+                } else {
+                    seatEl.classList.remove('available');
+                    seatEl.classList.add('selected');
+                    selectedSeats.push({
+                        id: seat.id,
+                        section: seat.section.name,
+                        row: seat.row,
+                        number: seat.number,
+                        price: seat.section.price
+                    });
+                }
+                updateSummary();
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error de conexión');
+        });
+    }
+    
+    function updateSummary() {
+        // Actualizar lista
+        selectedList.innerHTML = '';
+        let total = 0;
+        
+        selectedSeats.forEach(seat => {
+            const li = document.createElement('li');
+            li.textContent = `${seat.section} - Fila ${seat.row} Asiento ${seat.number} - $${seat.price}`;
+            selectedList.appendChild(li);
+            total += parseFloat(seat.price);
+        });
+        
+        // Actualizar total
+        totalPriceEl.textContent = `$${total.toFixed(2)}`;
+        
+        // Habilitar/deshabilitar botón continuar
+        reserveButton.disabled = selectedSeats.length === 0;
+    }
+    
+    // Form submit
+    document.getElementById('reserveForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (selectedSeats.length === 0) return;
+        
+        reserveButton.disabled = true;
+        reserveButton.textContent = 'Procesando...';
+        
+        fetch(this.action, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect;
+            } else {
+                alert('Error: ' + data.message);
+                reserveButton.disabled = false;
+                reserveButton.textContent = 'Continuar';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error de conexión');
+            reserveButton.disabled = false;
+            reserveButton.textContent = 'Continuar';
+        });
+    });
+});
+</script>
+
+{% endblock %}
