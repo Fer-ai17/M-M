@@ -14,11 +14,11 @@ urlpatterns = [
     path('events/<int:event_id>/seats/', views.seat_map, name='seat_map'),
     path('seats/<int:seat_id>/toggle/', views.toggle_seat, name='toggle_seat'),
     path('events/<int:event_id>/reserve-seats/', views.reserve_seats, name='reserve_seats'),
-    path('admin/sections/<int:section_id>/design/', views.seat_map_designer, name='seat_map_designer'),
+    path('venues/new/', views.create_venue, name='create_venue'),
     # Diseñador de venue (secciones)
     path('venue-designer/<int:venue_id>/', views.venue_designer, name='venue_designer'),
     # Diseñador de asientos (dentro de una sección)
-    path('section-designer/<int:section_id>/', views.seat_map_designer, name='seat_map_designer'),
+    path('section-designer/<int:section_id>/', views.seat_map_designer, name='section_designer'),
     
 
     # CRUD - Events
@@ -29,7 +29,7 @@ urlpatterns = [
     path("artists/new/", views.create_artist, name="create_artist"),
 
     # CRUD - Orders - Bought
-    path("bought/", views.bought, name="bought"),
+    path("bought/", views.bought, name="bought_list"),
     path("bought/<int:pk>/", views.bought_detail, name="bought_detail"),
 
     path("order/", views.order_list, name="order_list"),

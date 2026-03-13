@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.db import transaction
-from .models import Profile, Role, TypeDocument, Events, Artist
+from .models import Profile, Role, TypeDocument, Events, Artist, Venue
 
 
 class RegisterForm(UserCreationForm):
@@ -71,3 +71,9 @@ class ArtistForm(forms.ModelForm):
     class Meta:
         model = Artist
         fields = ["name", "birth_city", "musical_gender"]
+
+
+class VenueForm(forms.ModelForm):
+    class Meta:
+        model = Venue
+        fields = ["name", "address"]

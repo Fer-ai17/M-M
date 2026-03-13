@@ -59,97 +59,17 @@
 <div id="bulkCreateModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
     <div style="background:white; margin:10% auto; padding:20px; width:500px; border-radius:5px;">
         <h3>Crear Secciones en Bloque</h3>
-        
+
         <div class="form-group" style="margin-bottom: 15px;">
-            <label for="sectionNamePrefix" style="display: block; margin-bottom: 5px;">Prefijo de Nombre:</label>
-            <input type="text" id="sectionNamePrefix" value="Sección">
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="sectionCount" style="display: block; margin-bottom: 5px;">Número de Secciones:</label>
-            <input type="number" id="sectionCount" value="3" min="1">
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="sectionLayout" style="display: block; margin-bottom: 5px;">Disposición:</label>
-            <select id="sectionLayout">
-                <option value="horizontal">Horizontal</option>
-                <option value="vertical">Vertical</option>
-                <option value="grid">Cuadrícula</option>
-            </select>
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="gridRows" style="display: block; margin-bottom: 5px;">Filas en Cuadrícula:</label>
-            <input type="number" id="gridRows" value="2" min="1">
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="basePrice" style="display: block; margin-bottom: 5px;">Precio Base ($):</label>
-            <input type="number" id="basePrice" value="100" min="0" step="0.01">
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="priceIncrement" style="display: block; margin-bottom: 5px;">Incremento de Precio ($):</label>
-            <input type="number" id="priceIncrement" value="50" step="0.01">
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="sectionWidth" style="display: block; margin-bottom: 5px;">Ancho de Sección (px):</label>
-            <input type="number" id="sectionWidth" value="200" min="50">
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="sectionHeight" style="display: block; margin-bottom: 5px;">Alto de Sección (px):</label>
-            <input type="number" id="sectionHeight" value="150" min="50">
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="spacing" style="display: block; margin-bottom: 5px;">Espacio entre Secciones (px):</label>
-            <input type="number" id="spacing" value="20" min="0">
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="startX" style="display: block; margin-bottom: 5px;">Posición X inicial (px):</label>
-            <input type="number" id="startX" value="50">
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="startY" style="display: block; margin-bottom: 5px;">Posición Y inicial (px):</label>
-            <input type="number" id="startY" value="100">
-        </div>
-        
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="templateType" style="display: block; margin-bottom: 5px;">Tipo de Plantilla:</label>
+            <label for="templateType" style="display: block; margin-bottom: 5px;">Tipo de recinto:</label>
             <select id="templateType">
-                <option value="custom">Personalizado</option>
-                <option value="arena">Arena/Estadio</option>
                 <option value="theater">Teatro</option>
+                <option value="arena">Arena</option>
+                <option value="stadium">Estadio</option>
             </select>
         </div>
-        
-        <!-- Al seleccionar "Arena/Estadio" aparecerá esto: -->
-        <div id="arenaSettings" style="display: none; border: 1px solid #eee; padding: 10px; margin-bottom: 15px;">
-            <h4>Configuración de Arena</h4>
-            
-            <div class="form-group" style="margin-bottom: 15px;">
-                <label for="arenaRadius" style="display: block; margin-bottom: 5px;">Radio interior (px):</label>
-                <input type="number" id="arenaRadius" value="250" min="150">
-            </div>
-            
-            <div class="form-group" style="margin-bottom: 15px;">
-                <label for="sectionDepth" style="display: block; margin-bottom: 5px;">Profundidad de las secciones (px):</label>
-                <input type="number" id="sectionDepth" value="80" min="40">
-            </div>
-            
-            <div class="form-group" style="margin-bottom: 15px;">
-                <label for="sectionCount" style="display: block; margin-bottom: 5px;">Número de secciones en el perímetro:</label>
-                <input type="number" id="sectionCount" value="16" min="8" max="32">
-            </div>
-            
-            <div class="form-group" style="margin-bottom: 15px;">
-                <label for="rowTiers" style="display: block; margin-bottom: 5px;">Número de niveles de filas:</label>
-                <input type="number" id="rowTiers" value="3" min="1" max="5">
-            </div>
-            
-            <div class="form-group" style="margin-bottom: 15px;">
-                <label for="stagePosition" style="display: block; margin-bottom: 5px;">Posición del escenario:</label>
-                <select id="stagePosition">
-                    <option value="center">Centro (360°)</option>
-                    <option value="end">Extremo (U shape)</option>
-                </select>
-            </div>
-        </div>
+
+        <p style="margin: 0 0 12px 0; color: #555;">Al seleccionar el tipo de recinto se generará y guardará automáticamente un diseño base de secciones y asientos.</p>
         
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
             <button id="cancelBulkCreate">Cancelar</button>
@@ -179,9 +99,41 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Cargar secciones existentes
     const existingSections = {{ sections_json|safe }} || [];
+    const existingSeats = {{ seats_json|safe }} || [];
     
     existingSections.forEach(section => {
         createSectionElement(section);
+    });
+
+    existingSeats.forEach(seat => {
+        const sectionId = seat['section__id'];
+        const sectionMeta = sections.find(s => String(s.id) === String(sectionId));
+
+        const seatEl = document.createElement('div');
+        seatEl.className = 'theater-seat';
+        seatEl.style.position = 'absolute';
+        seatEl.style.width = '20px';
+        seatEl.style.height = '20px';
+        seatEl.style.backgroundColor = sectionMeta ? sectionMeta.color : '#CCCCCC';
+        seatEl.style.border = '1px solid rgba(0,0,0,0.3)';
+        seatEl.style.borderRadius = '3px';
+        seatEl.style.boxShadow = '0 2px 2px rgba(0,0,0,0.1)';
+        seatEl.style.zIndex = '10';
+        seatEl.style.fontSize = '8px';
+        seatEl.style.color = '#333';
+        seatEl.style.display = 'flex';
+        seatEl.style.alignItems = 'center';
+        seatEl.style.justifyContent = 'center';
+        seatEl.style.cursor = 'pointer';
+        seatEl.style.left = `${seat.x_position}px`;
+        seatEl.style.top = `${seat.y_position}px`;
+        seatEl.textContent = `${seat.row}${seat.number}`;
+        seatEl.dataset.sectionId = sectionId;
+        seatEl.dataset.row = seat.row;
+        seatEl.dataset.number = seat.number;
+        seatEl.dataset.status = seat.status || 'available';
+
+        venueMap.appendChild(seatEl);
     });
     
     // Actualizar lista de secciones para diseñar asientos
@@ -434,28 +386,27 @@ document.addEventListener('DOMContentLoaded', function() {
         document.removeEventListener('mousemove', resize);
         document.removeEventListener('mouseup', stopResize);
     }
-    
-    // Guardar diseño del venue
-    saveVenueButton.addEventListener('click', function() {
+
+    function persistVenueDesign(successMessage = 'Diseño guardado correctamente', reloadOnSuccess = true) {
         const sectionData = [];
         const seatData = [];
-        
+
         // Recopilar datos de secciones
         sections.forEach(section => {
             const el = section.element;
-            
+
             // Obtener posición y dimensiones actuales
             const style = getComputedStyle(el);
             const left = parseInt(style.left);
             const top = parseInt(style.top);
             const width = parseInt(style.width);
             const height = parseInt(style.height);
-            
+
             // Obtener propiedades
             const titleText = el.querySelector('.section-title').textContent;
             const name = titleText.split(' - $')[0];
             const price = parseFloat(titleText.split(' - $')[1]);
-            
+
             sectionData.push({
                 id: el.dataset.id,
                 name: name,
@@ -467,7 +418,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 height: height
             });
         });
-        
+
         // Recopilar datos de asientos
         document.querySelectorAll('.theater-seat').forEach(seatEl => {
             const style = getComputedStyle(seatEl);
@@ -480,23 +431,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 status: seatEl.dataset.status || 'available'
             });
         });
-        
+
         // Enviar al servidor
         const formData = new FormData();
         formData.append('section_data', JSON.stringify(sectionData));
-        formData.append('seat_data', JSON.stringify(seatData)); // Añadir datos de asientos
+        formData.append('seat_data', JSON.stringify(seatData));
         formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-        
-        fetch(window.location.href, {
+
+        return fetch(window.location.href, {
             method: 'POST',
             body: formData
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('Diseño guardado correctamente');
-                // Recargar para refrescar IDs
-                window.location.reload();
+                if (successMessage) {
+                    alert(successMessage);
+                }
+                if (reloadOnSuccess) {
+                    window.location.reload();
+                }
             } else {
                 alert('Error al guardar el diseño');
             }
@@ -505,6 +459,11 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error:', error);
             alert('Error de conexión');
         });
+    }
+    
+    // Guardar diseño del venue
+    saveVenueButton.addEventListener('click', function() {
+        persistVenueDesign('Diseño guardado correctamente', true);
     });
     
     // Modal de creación de secciones en bloque
@@ -523,156 +482,128 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Crear secciones en bloque
-    createBulkSections.addEventListener('click', function() {
-        const templateType = document.getElementById('templateType').value;
-        
-        if (templateType === 'arena') {
-            createArenaLayout();
-        } else {
-            // La lógica existente para las otras disposiciones
-            const namePrefix = document.getElementById('sectionNamePrefix').value;
-            const count = parseInt(document.getElementById('sectionCount').value);
-            const layout = document.getElementById('sectionLayout').value;
-            const gridRows = parseInt(document.getElementById('gridRows').value);
-            const basePrice = parseFloat(document.getElementById('basePrice').value);
-            const priceIncrement = parseFloat(document.getElementById('priceIncrement').value);
-            const width = parseInt(document.getElementById('sectionWidth').value);
-            const height = parseInt(document.getElementById('sectionHeight').value);
-            const spacing = parseInt(document.getElementById('spacing').value);
-            const startX = parseInt(document.getElementById('startX').value);
-            const startY = parseInt(document.getElementById('startY').value);
-            
-            // Generar secciones según la disposición seleccionada
-            if (layout === 'horizontal') {
-                for (let i = 0; i < count; i++) {
-                    const newSection = {
-                        id: nextSectionId--,
-                        name: `${namePrefix} ${i+1}`,
-                        price: basePrice + (i * priceIncrement),
-                        color: getRandomColor(),
-                        x_position: startX + i * (width + spacing),
-                        y_position: startY,
-                        width: width,
-                        height: height
-                    };
-                    
-                    createSectionElement(newSection);
-                }
-            } else if (layout === 'vertical') {
-                for (let i = 0; i < count; i++) {
-                    const newSection = {
-                        id: nextSectionId--,
-                        name: `${namePrefix} ${i+1}`,
-                        price: basePrice + (i * priceIncrement),
-                        color: getRandomColor(),
-                        x_position: startX,
-                        y_position: startY + i * (height + spacing),
-                        width: width,
-                        height: height
-                    };
-                    
-                    createSectionElement(newSection);
-                }
-            } else if (layout === 'grid') {
-                const cols = Math.ceil(count / gridRows);
-                
-                for (let i = 0; i < count; i++) {
-                    const row = Math.floor(i / cols);
-                    const col = i % cols;
-                    
-                    const newSection = {
-                        id: nextSectionId--,
-                        name: `${namePrefix} ${i+1}`,
-                        price: basePrice + (i * priceIncrement),
-                        color: getRandomColor(),
-                        x_position: startX + col * (width + spacing),
-                        y_position: startY + row * (height + spacing),
-                        width: width,
-                        height: height
-                    };
-                    
-                    createSectionElement(newSection);
-                }
+    function clearCurrentLayoutPreview() {
+        sections.forEach(section => {
+            if (section.element && section.element.parentNode === venueMap) {
+                venueMap.removeChild(section.element);
             }
-        }
-        
-        bulkCreateModal.style.display = 'none';
-        updateSectionsList();
-    });
-    
-    // Mostrar/ocultar configuración de arena según la selección
-    document.getElementById('templateType').addEventListener('change', function() {
-        const arenaSettings = document.getElementById('arenaSettings');
-        arenaSettings.style.display = this.value === 'arena' ? 'block' : 'none';
-    });
-    
-    // Función para crear layout tipo arena
-    function createArenaLayout() {
-        // Obtener parámetros
-        const namePrefix = document.getElementById('sectionNamePrefix').value;
-        const radius = parseInt(document.getElementById('arenaRadius').value);
-        const sectionDepth = parseInt(document.getElementById('sectionDepth').value);
-        const sectionCount = parseInt(document.getElementById('sectionCount').value);
-        const rowTiers = parseInt(document.getElementById('rowTiers').value);
-        const stagePosition = document.getElementById('stagePosition').value;
-        const basePrice = parseFloat(document.getElementById('basePrice').value);
-        const priceIncrement = parseFloat(document.getElementById('priceIncrement').value);
-        
-        // Calcular centro del mapa
-        const mapWidth = venueMap.clientWidth;
-        const mapHeight = venueMap.clientHeight;
-        const centerX = mapWidth / 2;
-        const centerY = mapHeight / 2;
-        
-        // Crear escenario
+        });
+
+        sections = [];
+        selectedSection = null;
+        deleteSectionButton.disabled = true;
+
+        document.querySelectorAll('.theater-seat, .auto-stage').forEach(el => el.remove());
+    }
+
+    function createStage(left, top, width, height, borderRadius = '10px') {
         const stage = document.createElement('div');
+        stage.className = 'auto-stage';
         stage.style.position = 'absolute';
+        stage.style.left = `${left}px`;
+        stage.style.top = `${top}px`;
+        stage.style.width = `${width}px`;
+        stage.style.height = `${height}px`;
+        stage.style.borderRadius = borderRadius;
         stage.style.backgroundColor = '#333';
-        stage.style.color = 'white';
-        stage.style.textAlign = 'center';
+        stage.style.color = '#fff';
         stage.style.display = 'flex';
         stage.style.alignItems = 'center';
         stage.style.justifyContent = 'center';
         stage.style.zIndex = '100';
-        
-        if (stagePosition === 'center') {
-            // Escenario central circular
-            stage.style.width = '100px';
-            stage.style.height = '100px';
-            stage.style.borderRadius = '50%';
-            stage.style.left = `${centerX - 50}px`;
-            stage.style.top = `${centerY - 50}px`;
-            stage.textContent = 'ESCENARIO';
-        } else {
-            // Escenario en un extremo
-            stage.style.width = '300px';
-            stage.style.height = '80px';
-            stage.style.borderRadius = '10px';
-            stage.style.left = `${centerX - 150}px`;
-            stage.style.top = `${centerY - radius - 100}px`;
-            stage.textContent = 'ESCENARIO';
-        }
-        
+        stage.textContent = 'ESCENARIO';
         venueMap.appendChild(stage);
-        
-        // Crear secciones en U 
-        
-        // ZONA FRONTAL
-        createTheaterSection("Front", centerX, centerY - 80, 600, 300, "#ff3333", basePrice * 1.5);
-        
-        // ZONA MEDIA
-        createTheaterSection("Middle", centerX, centerY + 230, 700, 200, "#ff9933", basePrice * 1.2);
-        
-        // ZONA TRASERA 
-        createTheaterSection("Back", centerX, centerY + 440, 800, 150, "#33cc33", basePrice);
-        
-        // ZONAS LATERALES 
-        // Izquierda
-        createTheaterSection("Side Left", centerX - 370, centerY + 80, 120, 400, "#3399ff", basePrice * 1.1);
-        
-        // Derecha
-        createTheaterSection("Side Right", centerX + 370, centerY + 80, 120, 400, "#3399ff", basePrice * 1.1);
+    }
+
+    function generateAndSaveSelectedLayout() {
+        const templateType = document.getElementById('templateType').value;
+        const hasCurrentDesign = document.querySelectorAll('.section-block, .theater-seat').length > 0;
+
+        if (hasCurrentDesign) {
+            const shouldReplace = confirm('Se reemplazará el diseño visible actual por una nueva propuesta automática.');
+            if (!shouldReplace) {
+                return false;
+            }
+        }
+
+        clearCurrentLayoutPreview();
+
+        if (templateType === 'theater') {
+            createTheaterLayout();
+        } else if (templateType === 'arena') {
+            createArenaLayout();
+        } else {
+            createStadiumLayout();
+        }
+
+        bulkCreateModal.style.display = 'none';
+        updateSectionsList();
+        persistVenueDesign('Diseño base generado y guardado correctamente', true);
+        return true;
+    }
+
+    // Crear secciones en bloque por tipo de recinto
+    createBulkSections.addEventListener('click', function() {
+        generateAndSaveSelectedLayout();
+    });
+
+    // Al seleccionar tipo de recinto, generar y guardar automáticamente
+    document.getElementById('templateType').addEventListener('change', function() {
+        generateAndSaveSelectedLayout();
+    });
+
+    function createTheaterLayout() {
+        const mapWidth = venueMap.clientWidth;
+        const mapHeight = venueMap.clientHeight;
+        const centerX = mapWidth / 2;
+
+        createStage(centerX - 180, 30, 360, 70);
+
+        createTheaterSection('VIP', centerX, 220, 700, 170, '#d94f4f', 220);
+        createTheaterSection('Preferencial', centerX, 430, 780, 170, '#f08a4b', 180);
+        createTheaterSection('General', centerX, 640, 860, 170, '#4da261', 130);
+    }
+
+    function createArenaLayout() {
+        const mapWidth = venueMap.clientWidth;
+        const mapHeight = venueMap.clientHeight;
+        const centerX = mapWidth / 2;
+        const centerY = mapHeight / 2;
+        const colors = ['#d94f4f', '#f08a4b', '#e6c229', '#4da261', '#2a9d8f', '#4f7bd9', '#8b5cf6', '#c24193'];
+
+        createStage(centerX - 60, centerY - 60, 120, 120, '50%');
+
+        const totalSections = 8;
+        const radius = 330;
+
+        for (let i = 0; i < totalSections; i++) {
+            const angle = (2 * Math.PI * i) / totalSections;
+            const sectionX = centerX + Math.cos(angle) * radius;
+            const sectionY = centerY + Math.sin(angle) * radius;
+
+            createTheaterSection(
+                `Arena ${i + 1}`,
+                sectionX,
+                sectionY,
+                170,
+                120,
+                colors[i % colors.length],
+                160
+            );
+        }
+    }
+
+    function createStadiumLayout() {
+        const mapWidth = venueMap.clientWidth;
+        const centerX = mapWidth / 2;
+
+        createStage(centerX - 220, 20, 440, 70);
+
+        createTheaterSection('Tribuna Norte', centerX, 175, 860, 120, '#2a9d8f', 190);
+        createTheaterSection('Occidental', centerX - 360, 390, 140, 370, '#4f7bd9', 170);
+        createTheaterSection('Oriental', centerX + 360, 390, 140, 370, '#8b5cf6', 170);
+        createTheaterSection('Tribuna Sur', centerX, 610, 860, 140, '#4da261', 140);
+        createTheaterSection('Gramilla Lateral', centerX, 810, 760, 130, '#e6c229', 110);
     }
     
     // Actualizar la función createTheaterSection para que los asientos se acoplen a cualquier sección

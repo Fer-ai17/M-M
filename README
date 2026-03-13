@@ -1,1 +1,145 @@
+# M&M - Plataforma de Eventos y Boletas
+
+Aplicación web construida con Django para la gestión y compra de boletas de eventos. El proyecto combina catálogo de eventos, carrito de compra, administración de pedidos y un módulo visual de diseño/selección de asientos por venue.
+
+## Resumen de lo que permite hacer
+
+### 1) Experiencia de usuario (comprador)
+- Registrarse e iniciar/cerrar sesión.
+- Editar perfil de usuario.
+- Ver listado de eventos.
+- Buscar y filtrar eventos por:
+	- texto (nombre)
+	- ubicación
+	- municipio
+	- etiqueta (`proximamente`, `preventa`, `ninguno`)
+- Ver detalle de un evento.
+- Agregar boletas al carrito (con límite de 10 por pedido).
+- Eliminar items del carrito.
+- Finalizar checkout.
+- Consultar historial/listado de compras.
+
+### 2) Experiencia de administración (staff)
+- Acceso a panel administrativo interno.
+- Crear, editar y eliminar eventos.
+- Crear artistas.
+- Consultar listado y detalle de pedidos.
+- Actualizar estado de pedidos (`pendiente`, `enviado`, `completado`).
+- Gestionar venues, secciones y asientos desde Django Admin.
+
+### 3) Módulo de mapa de asientos
+- Asociar eventos a un venue.
+- Diseñar estructura visual del venue por secciones (`Venue Designer`).
+- Diseñar asientos por sección (`Seat Map Designer`).
+- Mostrar mapa de asientos interactivo por evento.
+- Flujo de reserva/confirmación de asientos para llevarlos al carrito.
+
+## Funcionalidades de negocio importantes
+- Los precios y stock se manejan en `Location`.
+- El carrito persiste en sesión (`request.session`).
+- Límite de compra por pedido: 10 boletas.
+- Formateo de moneda con Babel (COP por defecto) y utilidad para conversión COP/USD.
+- El login redirige por rol:
+	- usuarios staff -> panel de administración
+	- usuarios normales -> listado de eventos
+
+## Stack tecnológico
+- Python
+- Django
+- MySQL (configurado por defecto en `blogsite/settings.py`)
+- WhiteNoise (archivos estáticos)
+- Gunicorn (despliegue)
+- Babel (formato de moneda)
+
+## Estructura principal
+- `blogsite/`: configuración del proyecto (settings, urls, wsgi, asgi)
+- `core/`: app principal (modelos, vistas, formularios, carrito, utilidades)
+- `templates/`: plantillas HTML (store, admin, registration)
+- `core/static/core/`: estilos CSS del sistema
+
+## Modelos clave
+- `Events`: eventos a la venta.
+- `Location`: precio y stock por ubicación/localidad.
+- `Tickets`: detalle de cantidad de boletas por evento.
+- `Bought`: registro de pedidos/compras.
+- `Profile`, `Role`, `TypeDocument`: perfil extendido de usuario.
+- `Venue`, `Section`, `Seat`: mapa y diseño de asientos.
+- `Artist`, `MusicalGender`, `Municipality`, `Department`: datos de catálogo.
+
+## Instalación y ejecución local
+
+## 1. Clonar repositorio
+```bash
+git clone https://github.com/Fer-ai17/M-M.git
+cd M-M
+```
+
+## 2. Crear entorno virtual e instalar dependencias
+```bash
+python -m venv .venv
+```
+
+En Windows PowerShell:
+```powershell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+En Linux/macOS:
+```bash
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## 3. Configurar base de datos
+El proyecto viene configurado para MySQL en `blogsite/settings.py`:
+- ENGINE: `django.db.backends.mysql`
+- NAME: `reto_m&m`
+- USER: ``
+- PASSWORD: `""`
+- HOST: ``
+- PORT: ``
+
+Asegura que esa base exista o ajusta credenciales según tu entorno.
+
+## 4. Migraciones
+```bash
+python manage.py migrate
+```
+
+## 5. Crear usuario administrador
+```bash
+python manage.py createsuperuser
+```
+
+## 6. Ejecutar servidor
+```bash
+python manage.py runserver
+```
+
+Abrir en navegador: `http://127.0.0.1:8000/`
+
+## Rutas principales
+- `/` -> listado de eventos
+- `/register/`, `/login/`, `/logout/` -> autenticación
+- `/cart/`, `/checkout/` -> carrito y compra
+- `/dashboard/` -> panel staff
+- `/events/new/` -> crear evento
+- `/order/` -> listado de pedidos
+- `/events/<id>/seats/` -> mapa de asientos por evento
+- `/venue-designer/<venue_id>/` -> diseñador de venue
+- `/section-designer/<section_id>/` -> diseñador de asientos por sección
+
+## Archivos relevantes para desarrollo
+- `core/models.py`: entidades de negocio y mapa de asientos.
+- `core/views.py`: lógica de catálogo, carrito, pedidos, auth y mapa.
+- `core/cart.py`: implementación del carrito en sesión.
+- `core/forms.py`: formularios de registro, eventos y artistas.
+- `blogsite/urls.py`: enrutamiento general.
+- `blogsite/settings.py`: configuración global y base de datos.
+
+## Estado actual
+Proyecto funcional para flujo de catálogo/compra y gestión administrativa, con módulo de mapa de asientos integrado para diseño y selección.
+
+## Repositorio
 https://github.com/Fer-ai17/M-M

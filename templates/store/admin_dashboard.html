@@ -49,18 +49,25 @@
 
 <div class="admin-section">
     <h3>Gestión de lugares y mapas de asientos</h3>
-    <a href="{% url 'admin:core_venue_changelist' %}" class="btn btn-primary">Gestionar lugares</a>
-    <a href="{% url 'admin:core_section_changelist' %}" class="btn btn-primary">Gestionar secciones</a>
+    <a href="{% url 'create_venue' %}" class="btn btn-primary">Crear lugar</a>
+    <a href="#venue-list" class="btn btn-primary">Ver lugares disponibles</a>
+    {% if venues %}
+      <a href="{% url 'venue_designer' venues.0.id %}" class="btn btn-primary">Diseñar secciones y asientos</a>
+    {% else %}
+      <a href="{% url 'create_venue' %}" class="btn btn-primary">Diseñar secciones y asientos</a>
+    {% endif %}
     
     <!-- Lista de venues con enlace al diseñador -->
-    <div class="venue-list">
+    <div class="venue-list" id="venue-list">
         <h4>Lugares disponibles:</h4>
         <ul>
             {% for venue in venues %}
             <li>
                 {{ venue.name }}
-                <a href="{% url 'venue_designer' venue.id %}" class="btn btn-sm">Diseñar Secciones</a>
+          <a href="{% url 'venue_designer' venue.id %}" class="btn btn-sm">Diseñar secciones y asientos</a>
             </li>
+        {% empty %}
+        <li>No hay lugares creados todavía. <a href="{% url 'create_venue' %}">Crear el primero</a>.</li>
             {% endfor %}
         </ul>
     </div>

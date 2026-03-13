@@ -11,6 +11,7 @@
     <tr>
       <th>Nombre</th>
       <th>Cantidad</th>
+      <th>Etiqueta</th>
       <th>Acciones</th>
     </tr>
   </thead>
@@ -18,7 +19,7 @@
     {% for event in events %}
       <tr>
         <td>{{ event.name }}</td>
-        <td>{{ event.stock }}</td>
+        <td>{{ event.location.stock }}</td>
         <td>{{ event.get_label_display }}</td>
         <td>
           <a href="{% url 'edit_events' event.id %}">Editar</a> | 
@@ -26,7 +27,7 @@
         </td>
       </tr>
     {% empty %}
-      <tr><td colspan="6">No hay eventos aún.</td></tr>
+      <tr><td colspan="4">No hay eventos aún.</td></tr>
     {% endfor %}
   </tbody>
 </table>

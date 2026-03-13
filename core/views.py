@@ -13,7 +13,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.views import LoginView
 from django.contrib.auth import logout
 from django.core.serializers.json import DjangoJSONEncoder
-from .forms import EventsForm, ArtistForm, RegisterForm
+from .forms import EventsForm, ArtistForm, RegisterForm, VenueForm
 from django.urls import reverse_lazy
 from .utils import convert_currency as convert_currency, format_price
 from django.http import HttpResponseRedirect, JsonResponse
@@ -202,15 +202,20 @@ def venue_designer(request, venue_id):
     if request.method == "POST":
         section_data = json.loads(request.POST.get('section_data', '[]'))
         seat_data = json.loads(request.POST.get('seat_data', '[]')) if 'seat_data' in request.POST else []
+        temp_to_real_section_ids = {}
         
         # Procesar secciones
         for data in section_data:
-            section_id = data.get('id')
-            
-            if section_id and int(section_id) > 0:
-                try:
-                    section = Section.objects.get(id=section_id)
-                except Section.DoesNotExist:
+            raw_section_id = data.get('id')
+
+            try:
+                section_id = int(raw_section_id)
+            except (TypeError, ValueError):
+                section_id = None
+
+            if section_id and section_id > 0:
+                section = Section.objects.filter(id=section_id, venue=venue).first()
+                if not section:
                     section = Section(venue=venue)
             else:
                 section = Section(venue=venue)
@@ -223,17 +228,27 @@ def venue_designer(request, venue_id):
             section.width = data.get('width', 200)
             section.height = data.get('height', 150)
             section.save()
+
+            if section_id and section_id < 0:
+                temp_to_real_section_ids[section_id] = section.id
         
         # Procesar asientos si los hay
         for data in seat_data:
-            section_id = data.get('section_id')
-            
-            # Si no hay section_id o es negativo (temporal), saltamos este asiento
-            if not section_id or int(section_id) < 0:
+            raw_section_id = data.get('section_id')
+
+            try:
+                section_id = int(raw_section_id)
+            except (TypeError, ValueError):
                 continue
+
+            # Resolver IDs temporales de frontend a IDs reales de DB
+            if section_id < 0:
+                section_id = temp_to_real_section_ids.get(section_id)
+                if not section_id:
+                    continue
                 
             try:
-                section = Section.objects.get(id=section_id)
+                section = Section.objects.get(id=section_id, venue=venue)
                 
                 # Buscar si ya existe un asiento con la misma fila y número en esta sección
                 try:
@@ -328,8 +343,8 @@ def admin_dashboard(request):
 
 @staff_member_required
 def admin_dashboard_events(request):
-    # events = Events.objects.all().order_by("-created_at") , {"events": events}
-    return render(request, "store/admin_dashboard_products.html")
+    events = Events.objects.select_related("location", "artist").all().order_by("-id")
+    return render(request, "store/admin_dashboard_products.html", {"events": events})
 
 def search_events(request):
     query = request.GET.get("q", "")
@@ -344,6 +359,20 @@ def search_events(request):
         "search_query": query,
     })
 
+
+@staff_member_required
+def create_venue(request):
+    if request.method == "POST":
+        form = VenueForm(request.POST)
+        if form.is_valid():
+            venue = form.save()
+            messages.success(request, "Lugar creado correctamente.")
+            return redirect("venue_designer", venue_id=venue.id)
+    else:
+        form = VenueForm()
+
+    return render(request, "store/create_venue.html", {"form": form})
+
 #CRUD-Events
 @staff_member_required
 def create_events(request):
@@ -354,7 +383,7 @@ def create_events(request):
         form = EventsForm(request.POST, request.FILES)
         if form.is_valid():
             form.save()
-            return redirect("events_list")
+            return redirect("admin_dashboard_events")
     else:
         form = EventsForm()
     return render(request, "store/create_product.html", {"form": form})
@@ -380,7 +409,7 @@ def edit_events(request, pk):
         form = EventsForm(request.POST, request.FILES, instance=events)
         if form.is_valid():
             form.save()
-            return redirect("admin_dashboard")
+            return redirect("admin_dashboard_events")
     else:
         form = EventsForm(instance=events)
     return render(request, "store/edit_product.html", {"form": form, "events": events})
@@ -389,7 +418,7 @@ def edit_events(request, pk):
 def delete_events(request, pk):
     events = get_object_or_404(Events, pk=pk)
     events.delete()
-    return redirect("admin_dashboard")
+    return redirect("admin_dashboard_events")
 
 #LISTS - DETAILS - ORDERS
 
