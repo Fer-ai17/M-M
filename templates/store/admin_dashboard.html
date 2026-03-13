@@ -36,7 +36,13 @@
     {% for order in last_orders %}
       <tr>
         <td>#{{ order.id }}</td>
-        <td>{{ order.customer_name }}</td>
+        <td>
+          {% if order.profile %}
+            {{ order.profile.name|default:order.profile.user.username }} {{ order.profile.lastname }}
+          {% else %}
+            Anónimo
+          {% endif %}
+        </td>
         <td>{{ order.created_at|date:"d/m/Y H:i" }}</td>
         <td>${{ order.total }}</td>
         <td><a href="{% url 'order_detail' order.id %}">Ver</a></td>

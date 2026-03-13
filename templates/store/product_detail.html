@@ -25,7 +25,7 @@
           {% endif %}
         </div>
 
-        <p class="mb-2"><strong>Disponibles:</strong> {{ events.stock }}</p>
+        <p class="mb-2"><strong>Disponibles:</strong> {{ events.location.stock }}</p>
 
         {% if events.location %}
           <p class="mb-2 text-muted small"><strong>Ubicación:</strong> {{ events.location.name }}</p>
@@ -43,10 +43,12 @@
     </div>
     {% endif %}
 
-    {% if events.stock > 0 %}
-      <a href="{% url 'add_to_cart' events.id %}" class="btn">Añadir al carrito</a>
-    {% else %}
-      <p class="out-of-stock">Tickets agotados</p>
+    {% if not events.has_seat_map %}
+      {% if events.location.stock > 0 %}
+        <a href="{% url 'add_to_cart' events.id %}" class="btn">Añadir al carrito</a>
+      {% else %}
+        <p class="out-of-stock">Tickets agotados</p>
+      {% endif %}
     {% endif %}
   </div>
 </div>

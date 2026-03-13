@@ -1,8 +1,10 @@
 import json
 from django.shortcuts import render, redirect, get_object_or_404
 from urllib3 import request
-from .models import Events, Tickets, Bought, Location, Municipality, Venue, Section, Seat 
+from .models import Events, Tickets, Bought, Location, Municipality, Venue, Section, Seat, Profile
 from decimal import Decimal, InvalidOperation
+from django.db import transaction
+from django.db.models import Count, Q
 from .cart import Cart
 from django.contrib import messages
 from django.contrib.auth.forms import UserCreationForm
@@ -21,55 +23,56 @@ import uuid
 
 #Mapa Interactivo
 def seat_map(request, event_id):
-    """Muestra el mapa de asientos para un evento"""
+    """Muestra selección por secciones para un evento (sin mapa visual)."""
     event = get_object_or_404(Events, pk=event_id)
     
     if not event.venue or not event.has_seat_map:
         messages.error(request, "Este evento no tiene mapa de asientos configurado")
         return redirect('events_detail', pk=event_id)
-    
-    # Obtener secciones y asientos
-    sections = Section.objects.filter(venue=event.venue)
-    
-    # Preparar datos para JS
-    sections_data = []
-    for section in sections:
-        sections_data.append({
-            'id': section.id,
-            'name': section.name,
-            'price': float(section.price),
-            'color': section.color
-        })
 
-    seats_data = []
-    for section in sections:
-        for seat in section.seats.all():
-            seats_data.append({
-                'id': seat.id,
-                'section': {
-                    'id': section.id,
-                    'name': section.name,
-                    'price': float(section.price),
-                    'color': section.color
-                },
-                'row': seat.row,
-                'number': seat.number,
-                'x_position': seat.x_position,
-                'y_position': seat.y_position,
-                'status': seat.status
-            })
     # Generar ID de sesión para reserva temporal
     reservation_session_id = request.session.get('reservation_session_id')
     if not reservation_session_id:
         reservation_session_id = str(uuid.uuid4())
         request.session['reservation_session_id'] = reservation_session_id
+
+    # Liberar reservas atascadas de otras sesiones para evitar asientos bloqueados indefinidamente.
+    Seat.objects.filter(
+        section__venue=event.venue,
+        status='reserved'
+    ).exclude(reserved_by=reservation_session_id).update(status='available', reserved_by=None)
     
+    # Contar disponibilidad por sección (incluyendo reservados de esta sesión).
+    sections_qs = Section.objects.filter(venue=event.venue).annotate(
+        available_count=Count(
+            'seats',
+            filter=(Q(seats__status='available') | Q(seats__status='reserved', seats__reserved_by=reservation_session_id)),
+        )
+    ).order_by('name')
+
+    sections = list(sections_qs)
+    ranked_sections = sorted(sections, key=lambda s: (s.price, s.name), reverse=True)
+
+    total_ranked = len(ranked_sections)
+    for index, section in enumerate(ranked_sections):
+        if total_ranked <= 1:
+            description = "Vista general del escenario."
+        elif index < max(1, total_ranked // 3):
+            description = "Muy cerca del escenario."
+        elif index < max(2, (2 * total_ranked) // 3):
+            description = "Distancia media al escenario."
+        else:
+            description = "Zona más alejada del escenario."
+
+        section.proximity_description = description
+
+    current_cart_item = Cart(request).cart.get(str(event.id), {})
+    selected_count = len(current_cart_item.get('seat_ids', []))
     context = {
         'event': event,
         'sections': sections,
-        'sections_json': json.dumps(sections_data, cls=DjangoJSONEncoder),
-        'seats_json': json.dumps(seats_data, cls=DjangoJSONEncoder),
-        'reservation_session_id': reservation_session_id
+        'selected_count': selected_count,
+        'reservation_session_id': reservation_session_id,
     }
     return render(request, "store/seat_map.html", context)
 
@@ -116,7 +119,7 @@ def toggle_seat(request, seat_id):
         return JsonResponse({'success': False, 'message': 'Asiento no encontrado'})
     
 def reserve_seats(request, event_id):
-    """API para confirmar la reserva de asientos y añadirlos al carrito"""
+    """Confirma selección de sección/cantidad y reserva asientos para el carrito."""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Método no permitido'})
     
@@ -126,29 +129,65 @@ def reserve_seats(request, event_id):
     if not reservation_session_id:
         return JsonResponse({'success': False, 'message': 'Sesión inválida'})
     
-    # Buscar asientos reservados por este usuario
+    cart = Cart(request)
+
+    # Nuevo flujo: selección por sección + cantidad.
+    section_id = request.POST.get('section_id')
+    if section_id:
+        try:
+            quantity = int(request.POST.get('quantity', '1'))
+        except (TypeError, ValueError):
+            quantity = 0
+
+        if quantity < 1:
+            messages.error(request, 'Cantidad inválida.')
+            return redirect('seat_map', event_id=event.id)
+
+        section = get_object_or_404(Section, pk=section_id, venue=event.venue)
+
+        # Liberar selección previa de este evento para reemplazarla.
+        previous_ids = cart.cart.get(str(event.id), {}).get('seat_ids', [])
+        if previous_ids:
+            Seat.objects.filter(
+                id__in=previous_ids,
+                status='reserved',
+                reserved_by=reservation_session_id
+            ).update(status='available', reserved_by=None)
+
+        candidate_qs = Seat.objects.filter(
+            section=section
+        ).filter(
+            Q(status='available') | Q(status='reserved', reserved_by=reservation_session_id)
+        ).order_by('row', 'number')
+
+        seat_ids = list(candidate_qs.values_list('id', flat=True)[:quantity])
+        if len(seat_ids) < quantity:
+            messages.error(request, f'No hay suficientes asientos disponibles en {section.name}.')
+            return redirect('seat_map', event_id=event.id)
+
+        Seat.objects.filter(id__in=seat_ids, status='available').update(
+            status='reserved',
+            reserved_by=reservation_session_id,
+        )
+
+        cart.add(event, quantity=len(seat_ids), update_quantity=True, seat_ids=seat_ids)
+        messages.success(request, f'Seleccionaste {len(seat_ids)} asiento(s) en {section.name}.')
+
+        return redirect('cart_detail')
+
+    # Compatibilidad: flujo previo basado en asientos reservados por la sesión.
     seats = Seat.objects.filter(
         section__venue=event.venue,
         status='reserved',
         reserved_by=reservation_session_id
     )
-    
+
     if not seats:
         return JsonResponse({'success': False, 'message': 'No hay asientos seleccionados'})
-    
-    # Añadir al carrito (simplificado - necesitarás adaptar a tu lógica de carrito)
-    cart = Cart(request)
-    
-    # Guardar IDs de asientos en el item del carrito
+
     seat_ids = list(seats.values_list('id', flat=True))
-    cart.add(event, seat_ids=seat_ids)
-    
-    # Actualizar estado de los asientos
-    seats.update(status='sold')
-    
-    # Crear nueva sesión para futuras reservas
-    request.session['reservation_session_id'] = str(uuid.uuid4())
-    
+    cart.add(event, quantity=len(seat_ids), update_quantity=True, seat_ids=seat_ids)
+
     return JsonResponse({'success': True, 'redirect': reverse_lazy('cart_detail')})
 
 @staff_member_required
@@ -396,14 +435,16 @@ def profile(request):
 @staff_member_required
 def admin_dashboard(request):
     total_events = Events.objects.count()
-    out_of_stock = Events.objects.filter(artist=0).count()
-    total_orders = Tickets.objects.count()
+    out_of_stock = Events.objects.filter(location__stock=0).count()
+    total_orders = Bought.objects.count()
+    last_orders = Bought.objects.select_related("profile__user", "tickets__events").order_by("-created_at")[:8]
     venues = Venue.objects.all()
     
     context = {
         "total_events": total_events,
         "out_of_stock": out_of_stock,
         "total_orders": total_orders,
+        "last_orders": last_orders,
         "venues": venues,
     }
     return render(request, "store/admin_dashboard.html", context)
@@ -520,18 +561,26 @@ def delete_events(request, pk):
 
 @login_required
 def bought(request):
-    orders = Bought.objects.all().order_by("-created_at")
+    user_profile = Profile.objects.filter(user=request.user).first()
+    if not user_profile:
+        orders = Bought.objects.none()
+    else:
+        orders = Bought.objects.select_related("tickets__events", "profile__user").filter(profile=user_profile).order_by("-created_at")
     
     return render(request, "store/bought.html", {"orders": orders})
 
-@staff_member_required
+@login_required
 def bought_detail(request, pk):
-    order = get_object_or_404(Bought, pk=pk)
+    if request.user.is_staff:
+        order = get_object_or_404(Bought, pk=pk)
+    else:
+        user_profile = Profile.objects.filter(user=request.user).first()
+        order = get_object_or_404(Bought, pk=pk, profile=user_profile)
     return render(request, "store/order_detail.html", {"order": order})
 
-@login_required
+@staff_member_required
 def order_list(request):
-    orders = Bought.objects.all().order_by("-created_at")
+    orders = Bought.objects.select_related("tickets__events", "profile__user").all().order_by("-created_at")
 
     return render(request, "store/order_list.html", {"orders": orders})
 
@@ -602,6 +651,11 @@ def add_to_cart(request, pk):
     cart = Cart(request)
     events = get_object_or_404(Events, pk=pk)
 
+    # Para eventos con mapa de asientos, forzar selección de zona/asiento.
+    if events.has_seat_map and events.venue:
+        messages.info(request, "Para este evento debes seleccionar zona y asiento.")
+        return redirect("seat_map", event_id=events.id)
+
     # cantidad a añadir
     add_qty = 1
     if request.method == "POST":
@@ -637,6 +691,12 @@ def add_to_cart(request, pk):
 def remove_from_cart(request, pk):
     cart = Cart(request)
     events = get_object_or_404(Events, pk=pk)
+
+    item = cart.cart.get(str(events.id), {})
+    seat_ids = item.get("seat_ids", [])
+    if seat_ids:
+        Seat.objects.filter(id__in=seat_ids, status='reserved').update(status='available', reserved_by=None)
+
     cart.remove(events)
     messages.success(request, "Boleta(s) eliminadas del carrito.")
     return redirect("cart_detail")
@@ -650,18 +710,23 @@ def cart_detail(request):
 
     for item in cart:
         events = item['events']
-        quantity = item['quantity']
+        quantity = int(item.get('quantity', 0))
         seat_ids = item.get('seat_ids', [])
-        
-        # Usar location.price en lugar de events.price
-        price = events.location.price
-        item_total = price * quantity
-        total += item_total
-        
+
         # Si hay asientos seleccionados, obtenerlos
         seats = []
         if seat_ids:
             seats = Seat.objects.select_related('section').filter(id__in=seat_ids)
+
+        if seats:
+            item_total = sum((seat.section.price for seat in seats), Decimal("0.00"))
+            quantity = len(seats)
+            price = item_total / quantity if quantity else Decimal("0.00")
+        else:
+            price = events.location.price
+            item_total = price * quantity
+
+        total += item_total
         
         cart_items.append({
             'events': events,
@@ -680,56 +745,106 @@ def cart_detail(request):
 @login_required
 def checkout(request):
     cart = Cart(request)
+
+    if not cart.cart:
+        messages.error(request, "Tu carrito está vacío.")
+        return redirect("cart_detail")
     
     # Calcular total (similar a cart_detail)
-    total = 0
-    total_qty = 0
+    total = Decimal("0.00")
     for item in cart:
         events = item['events']
-        # Usar location.price en lugar de events.price
-        price = events.location.price
-        total += price * item['quantity']
+        seat_ids = item.get('seat_ids', [])
+        if seat_ids:
+            seats = Seat.objects.select_related('section').filter(id__in=seat_ids)
+            total += sum((seat.section.price for seat in seats), Decimal("0.00"))
+        else:
+            price = events.location.price
+            total += price * int(item.get('quantity', 0))
 
     if request.method == "POST":
-        name = request.POST.get("name")
-        email = request.POST.get("email")
-        address = request.POST.get("address")
-
-        order = Bought.objects.create(
-            customer_name=name,
-            customer_email=email,
-            customer_address=address,
+        profile, _ = Profile.objects.get_or_create(
+            user=request.user,
+            defaults={
+                "name": request.user.first_name or "",
+                "lastname": request.user.last_name or "",
+                "email": request.user.email or "",
+            }
         )
 
-        errors = []
-        for item in cart:
-            try:
-                Tickets.objects.create(
-                    order=order,
-                    events=item["events"],
-                    quantity=item["quantity"],
-                    # Usar location.price en lugar de events.price
-                    price=item["events"].location.price,
-                )
-                events = item["events"]
-                # Actualizar el stock en location en lugar de en events
-                location = events.location
-                location.stock -= item["quantity"]
-                location.save()
-            except Exception as e:
-                errors.append(str(e))
+        profile_updated = False
+        if request.user.first_name and not profile.name:
+            profile.name = request.user.first_name
+            profile_updated = True
+        if request.user.last_name and not profile.lastname:
+            profile.lastname = request.user.last_name
+            profile_updated = True
+        if request.user.email and not profile.email:
+            profile.email = request.user.email
+            profile_updated = True
+        if profile_updated:
+            profile.save()
 
-        if errors:
-            for e in errors:
-                messages.error(request, e)
+        created_orders = []
+
+        try:
+            with transaction.atomic():
+                for item in cart:
+                    events = item["events"]
+                    seat_ids = item.get("seat_ids", [])
+
+                    if events.has_seat_map and not seat_ids:
+                        raise ValueError(f"Debes seleccionar zona/asiento para {events.name}.")
+
+                    # Si viene desde mapa de asientos, la cantidad real es la cantidad de asientos.
+                    requested_qty = len(seat_ids) if seat_ids else int(item.get("quantity", 0))
+
+                    if requested_qty < 1:
+                        raise ValueError("La cantidad de boletas debe ser mayor a cero.")
+
+                    location = events.location
+                    if requested_qty > location.stock:
+                        raise ValueError(f"No hay stock suficiente para {events.name}.")
+
+                    if seat_ids:
+                        reserved_seats = Seat.objects.select_related('section').filter(
+                            id__in=seat_ids,
+                            section__venue=events.venue,
+                        )
+                        if reserved_seats.count() != requested_qty:
+                            raise ValueError(f"Algunos asientos de {events.name} ya no están disponibles.")
+
+                        # No vender asientos bloqueados o ya vendidos.
+                        invalid = reserved_seats.exclude(status__in=['reserved', 'available'])
+                        if invalid.exists():
+                            raise ValueError(f"Algunos asientos de {events.name} ya no están disponibles.")
+
+                    ticket = Tickets.objects.create(
+                        events=events,
+                        quantity=requested_qty,
+                    )
+
+                    order = Bought.objects.create(
+                        profile=profile,
+                        tickets=ticket,
+                        status="completado",
+                    )
+                    created_orders.append(order)
+
+                    if seat_ids:
+                        reserved_seats.update(status='sold', reserved_by=None)
+
+                    location.stock -= requested_qty
+                    location.save()
+
+        except Exception as exc:
+            messages.error(request, f"No se pudo completar la compra: {exc}")
             return redirect("cart_detail")
-        
-        # No es necesario decrementar el stock dos veces
-        # Ya se hizo en el bucle anterior
-        
+
         cart.clear()
         messages.success(request, "Compra realizada correctamente.")
-        return render(request, "store/checkout_done.html", {"order": order})
+        order = created_orders[0] if created_orders else None
+        return render(request, "store/checkout_done.html", {"order": order, "orders": created_orders})
 
     context = {
         'cart': cart,

@@ -176,6 +176,7 @@ class Seat(models.Model):
     number = models.CharField(max_length=10)  # Ej: 1, 2, 3...
     x_position = models.IntegerField(help_text="Posición X en el mapa")
     y_position = models.IntegerField(help_text="Posición Y en el mapa")
+    reserved_by = models.CharField(max_length=64, null=True, blank=True)
     status = models.CharField(max_length=20, choices=[
         ('available', 'Disponible'),
         ('reserved', 'Reservado'),

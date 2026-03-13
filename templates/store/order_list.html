@@ -8,8 +8,10 @@
     <tr>
       <th>ID</th>
       <th>Cliente</th>
-      <th>Email</th>
+      <th>Evento</th>
+      <th>Cantidad</th>
       <th>Fecha</th>
+      <th>Estado</th>
       <th>Total</th>
       <th></th>
     </tr>
@@ -18,14 +20,22 @@
     {% for order in orders %}
       <tr>
         <td>#{{ order.id }}</td>
-        <td>{{ order.customer_name }}</td>
-        <td>{{ order.customer_email }}</td>
+        <td>
+          {% if order.profile %}
+            {{ order.profile.name|default:order.profile.user.username }} {{ order.profile.lastname }}
+          {% else %}
+            Anónimo
+          {% endif %}
+        </td>
+        <td>{{ order.tickets.events.name }}</td>
+        <td>{{ order.tickets.quantity }}</td>
         <td>{{ order.created_at|date:"d/m/Y H:i" }}</td>
+        <td>{{ order.get_status_display }}</td>
         <td>${{ order.total }}</td>
         <td><a href="{% url 'order_detail' order.id %}">Ver detalles</a></td>
       </tr>
     {% empty %}
-      <tr><td colspan="6">No hay compras todavía.</td></tr>
+      <tr><td colspan="8">No hay compras todavía.</td></tr>
     {% endfor %}
   </tbody>
 </table>
