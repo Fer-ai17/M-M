@@ -48,13 +48,13 @@
 </table>
 
 <div class="admin-section">
-    <h3>Gestión de lugares y mapas de asientos</h3>
+  <h3>Gestión de recintos y áreas</h3>
     <a href="{% url 'create_venue' %}" class="btn btn-primary">Crear lugar</a>
-    <a href="#venue-list" class="btn btn-primary">Ver lugares disponibles</a>
+    <a href="{% url 'venue_list' %}" class="btn btn-primary">Ver lugares disponibles</a>
     {% if venues %}
-      <a href="{% url 'venue_designer' venues.0.id %}" class="btn btn-primary">Diseñar secciones y asientos</a>
+      <a href="{% url 'venue_designer' venues.0.id %}" class="btn btn-primary">Configurar áreas y costos</a>
     {% else %}
-      <a href="{% url 'create_venue' %}" class="btn btn-primary">Diseñar secciones y asientos</a>
+      <a href="{% url 'create_venue' %}" class="btn btn-primary">Configurar áreas y costos</a>
     {% endif %}
     
     <!-- Lista de venues con enlace al diseñador -->
@@ -64,7 +64,11 @@
             {% for venue in venues %}
             <li>
                 {{ venue.name }}
-          <a href="{% url 'venue_designer' venue.id %}" class="btn btn-sm">Diseñar secciones y asientos</a>
+                <a href="{% url 'venue_designer' venue.id %}" class="btn btn-sm">Configurar áreas y costos</a>
+                <form method="post" action="{% url 'delete_venue' venue.id %}" style="display:inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm" onclick="return confirm('¿Seguro que deseas eliminar este lugar? También se eliminarán sus secciones y asientos.')">Eliminar</button>
+                </form>
             </li>
         {% empty %}
         <li>No hay lugares creados todavía. <a href="{% url 'create_venue' %}">Crear el primero</a>.</li>

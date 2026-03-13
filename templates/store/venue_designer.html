@@ -1,930 +1,220 @@
 {% extends "base.html" %}
-{% load static %}
 
 {% block content %}
-<h1>Diseñador de: {{ venue.name }}</h1>
+<h1>Configurar recinto: {{ venue.name }}</h1>
+<p>El administrador solo puede definir el tipo de recinto, y el nombre/costo de cada area.</p>
 
-<div class="design-container" style="display: flex; gap: 20px;">
-    <div class="design-tools" style="width: 300px; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
-        <h2>Herramientas</h2>
-        
-        <div class="action-buttons" style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <button id="addSection">Nueva Sección</button>
-            <button id="deleteSection" disabled>Eliminar</button>
-        </div>
-        
-        <div class="section-form" id="sectionForm" style="margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
-            <h3>Propiedades de la Sección</h3>
-            <div class="form-group" style="margin-bottom: 15px;">
-                <label for="sectionName" style="display: block; margin-bottom: 5px;">Nombre:</label>
-                <input type="text" id="sectionName" value="Nueva Sección">
-            </div>
-            <div class="form-group" style="margin-bottom: 15px;">
-                <label for="sectionPrice" style="display: block; margin-bottom: 5px;">Precio ($):</label>
-                <input type="number" id="sectionPrice" value="0" min="0" step="0.01">
-            </div>
-            <div class="form-group" style="margin-bottom: 15px;">
-                <label for="sectionColor" style="display: block; margin-bottom: 5px;">Color:</label>
-                <input type="color" id="sectionColor" value="#CCCCCC">
-            </div>
-            <button id="applyProperties">Aplicar</button>
-        </div>
-        
-        <div class="venue-tools" style="margin-top: 20px;">
-            <h3>Opciones de Venue</h3>
-            <button id="bulkCreateSections">Crear Secciones en Bloque</button>
-            <button id="saveVenue">Guardar Diseño</button>
-            <div style="margin-top: 15px;">
-                <a href="javascript:history.back()" class="button">Volver atrás</a>
-            </div>
-            
-            <!-- Enlaces a los diseñadores de asientos de cada sección -->
-            <div style="margin-top: 20px;">
-                <h4>Diseñar Asientos:</h4>
-                <ul id="sectionList" style="padding-left: 20px;">
-                    <!-- Se llenará dinámicamente -->
-                </ul>
-            </div>
-        </div>
-    </div>
-    
-    <div class="venue-map" id="venueMap" style="position: relative; width: 1000px; height: 1000px; border: 1px solid #ddd; background: #f9f9f9; overflow: auto;">
-        <!-- Área para el escenario -->
-         
-        <!-- Las secciones se cargarán dinámicamente -->
-    </div>
-</div>
+<div style="display:flex; gap:20px; align-items:flex-start;">
+    <div style="width:360px; padding:15px; border:1px solid #ddd; border-radius:5px; background:#fff;">
+        <h2>Configuracion</h2>
 
-<!-- Modal para crear secciones en bloque -->
-<div id="bulkCreateModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
-    <div style="background:white; margin:10% auto; padding:20px; width:500px; border-radius:5px;">
-        <h3>Crear Secciones en Bloque</h3>
-
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="templateType" style="display: block; margin-bottom: 5px;">Tipo de recinto:</label>
-            <select id="templateType">
+        <div style="margin-bottom:12px;">
+            <label for="venueType" style="display:block; margin-bottom:6px;">Tipo de recinto:</label>
+            <select id="venueType" style="width:100%; padding:8px;">
                 <option value="theater">Teatro</option>
                 <option value="arena">Arena</option>
                 <option value="stadium">Estadio</option>
             </select>
         </div>
 
-        <p style="margin: 0 0 12px 0; color: #555;">Al seleccionar el tipo de recinto se generará y guardará automáticamente un diseño base de secciones y asientos.</p>
-        
-        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
-            <button id="cancelBulkCreate">Cancelar</button>
-            <button id="createBulkSections">Crear</button>
+        <h3>Areas</h3>
+        <div id="areasForm"></div>
+
+        <div style="display:flex; gap:10px; margin-top:16px;">
+            <button id="saveConfig" class="btn btn-primary" type="button">Guardar configuracion</button>
+            <a href="{% url 'admin_dashboard' %}" class="btn">Volver</a>
         </div>
+
+        <p style="margin-top:12px; color:#666; font-size:13px;">
+            Al guardar se reemplazan secciones y asientos anteriores por el diseno del tipo seleccionado.
+        </p>
+    </div>
+
+    <div style="flex:1;">
+        <h3>Vista previa</h3>
+        <div id="venueMap" style="position:relative; width:1000px; height:900px; border:1px solid #ddd; background:#f9f9f9; overflow:hidden;"></div>
     </div>
 </div>
 
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const venueTypeSelect = document.getElementById('venueType');
+    const areasForm = document.getElementById('areasForm');
     const venueMap = document.getElementById('venueMap');
-    const sectionForm = document.getElementById('sectionForm');
-    const addSectionButton = document.getElementById('addSection');
-    const deleteSectionButton = document.getElementById('deleteSection');
-    const applyPropertiesButton = document.getElementById('applyProperties');
-    const saveVenueButton = document.getElementById('saveVenue');
-    const bulkCreateSectionsButton = document.getElementById('bulkCreateSections');
-    const bulkCreateModal = document.getElementById('bulkCreateModal');
-    const cancelBulkCreate = document.getElementById('cancelBulkCreate');
-    const createBulkSections = document.getElementById('createBulkSections');
-    
-    // Variables de estado
-    let sections = [];
-    let selectedSection = null;
-    let nextSectionId = -1; // IDs temporales para nuevas secciones
-    
-    // Cargar secciones existentes
-    const existingSections = {{ sections_json|safe }} || [];
-    const existingSeats = {{ seats_json|safe }} || [];
-    
-    existingSections.forEach(section => {
-        createSectionElement(section);
-    });
+    const saveConfigButton = document.getElementById('saveConfig');
 
-    existingSeats.forEach(seat => {
-        const sectionId = seat['section__id'];
-        const sectionMeta = sections.find(s => String(s.id) === String(sectionId));
+    const existingSections = JSON.parse('{{ sections_json|escapejs }}');
+    existingSections.sort((a, b) => (a.y_position - b.y_position) || (a.x_position - b.x_position));
 
-        const seatEl = document.createElement('div');
-        seatEl.className = 'theater-seat';
-        seatEl.style.position = 'absolute';
-        seatEl.style.width = '20px';
-        seatEl.style.height = '20px';
-        seatEl.style.backgroundColor = sectionMeta ? sectionMeta.color : '#CCCCCC';
-        seatEl.style.border = '1px solid rgba(0,0,0,0.3)';
-        seatEl.style.borderRadius = '3px';
-        seatEl.style.boxShadow = '0 2px 2px rgba(0,0,0,0.1)';
-        seatEl.style.zIndex = '10';
-        seatEl.style.fontSize = '8px';
-        seatEl.style.color = '#333';
-        seatEl.style.display = 'flex';
-        seatEl.style.alignItems = 'center';
-        seatEl.style.justifyContent = 'center';
-        seatEl.style.cursor = 'pointer';
-        seatEl.style.left = `${seat.x_position}px`;
-        seatEl.style.top = `${seat.y_position}px`;
-        seatEl.textContent = `${seat.row}${seat.number}`;
-        seatEl.dataset.sectionId = sectionId;
-        seatEl.dataset.row = seat.row;
-        seatEl.dataset.number = seat.number;
-        seatEl.dataset.status = seat.status || 'available';
+    const layouts = {
+        theater: [
+            { name: 'VIP', price: 220, color: '#d94f4f', x: 150, y: 160, width: 700, height: 170 },
+            { name: 'Preferencial', price: 180, color: '#f08a4b', x: 110, y: 390, width: 780, height: 170 },
+            { name: 'General', price: 130, color: '#4da261', x: 70, y: 620, width: 860, height: 170 },
+        ],
+        arena: [
+            { name: 'Arena 1', price: 160, color: '#d94f4f', x: 450, y: 120, width: 170, height: 120 },
+            { name: 'Arena 2', price: 160, color: '#f08a4b', x: 700, y: 220, width: 170, height: 120 },
+            { name: 'Arena 3', price: 160, color: '#e6c229', x: 790, y: 430, width: 170, height: 120 },
+            { name: 'Arena 4', price: 160, color: '#4da261', x: 700, y: 640, width: 170, height: 120 },
+            { name: 'Arena 5', price: 160, color: '#2a9d8f', x: 450, y: 740, width: 170, height: 120 },
+            { name: 'Arena 6', price: 160, color: '#4f7bd9', x: 200, y: 640, width: 170, height: 120 },
+            { name: 'Arena 7', price: 160, color: '#8b5cf6', x: 110, y: 430, width: 170, height: 120 },
+            { name: 'Arena 8', price: 160, color: '#c24193', x: 200, y: 220, width: 170, height: 120 },
+        ],
+        stadium: [
+            { name: 'Tribuna Norte', price: 190, color: '#2a9d8f', x: 70, y: 150, width: 860, height: 120 },
+            { name: 'Occidental', price: 170, color: '#4f7bd9', x: 90, y: 320, width: 140, height: 370 },
+            { name: 'Oriental', price: 170, color: '#8b5cf6', x: 770, y: 320, width: 140, height: 370 },
+            { name: 'Tribuna Sur', price: 140, color: '#4da261', x: 70, y: 620, width: 860, height: 140 },
+            { name: 'Gramilla Lateral', price: 110, color: '#e6c229', x: 120, y: 790, width: 760, height: 110 },
+        ],
+    };
 
-        venueMap.appendChild(seatEl);
-    });
-    
-    // Actualizar lista de secciones para diseñar asientos
-    updateSectionsList();
-    
-    // Añadir nueva sección
-    addSectionButton.addEventListener('click', function() {
-        const newSection = {
-            id: nextSectionId--,
-            name: document.getElementById('sectionName').value,
-            price: parseFloat(document.getElementById('sectionPrice').value),
-            color: document.getElementById('sectionColor').value,
-            x_position: 100,
-            y_position: 100,
-            width: 200,
-            height: 150
-        };
-        
-        createSectionElement(newSection);
-        updateSectionsList();
-    });
-    
-    // Crear elemento de sección y añadirlo al mapa
-    function createSectionElement(section) {
-        const sectionEl = document.createElement('div');
-        sectionEl.className = 'section-block';
-        sectionEl.id = `section-${section.id}`;
-        sectionEl.dataset.id = section.id;
-        sectionEl.style.backgroundColor = section.color;
-        
-        // Título de la sección
-        const titleEl = document.createElement('div');
-        titleEl.className = 'section-title';
-        titleEl.textContent = `${section.name} - $${section.price}`;
-        sectionEl.appendChild(titleEl);
-        
-        // Handle de redimensión
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'section-resize';
-        sectionEl.appendChild(resizeHandle);
-        
-        // Posicionar y dimensionar
-        sectionEl.style.left = `${section.x_position}px`;
-        sectionEl.style.top = `${section.y_position}px`;
-        sectionEl.style.width = `${section.width}px`;
-        sectionEl.style.height = `${section.height}px`;
-        
-        // Eventos
-        sectionEl.addEventListener('mousedown', startDrag);
-        sectionEl.addEventListener('click', selectSection);
-        resizeHandle.addEventListener('mousedown', startResize);
-        
-        venueMap.appendChild(sectionEl);
-        sections.push({
-            element: sectionEl,
-            id: section.id,
-            name: section.name,
-            price: section.price,
-            color: section.color
-        });
-        
-        return sectionEl;
-    }
-    
-    // Actualizar lista de enlaces a diseñadores de asientos
-    function updateSectionsList() {
-        const sectionList = document.getElementById('sectionList');
-        sectionList.innerHTML = '';
-        
-        const existingSections = Array.from(document.querySelectorAll('.section-block'))
-            .filter(el => parseInt(el.dataset.id) > 0);
-        
-        if (existingSections.length === 0) {
-            const li = document.createElement('li');
-            li.textContent = 'No hay secciones guardadas';
-            sectionList.appendChild(li);
-            return;
-        }
-        
-        existingSections.forEach(el => {
-            const titleEl = el.querySelector('.section-title');
-            const sectionName = titleEl.textContent.split(' - $')[0];
-            
-            const li = document.createElement('li');
-            const a = document.createElement('a');
-            a.href = `/section-designer/${el.dataset.id}/`;
-            a.textContent = sectionName;
-            a.style.color = '#1e90ff';
-            a.style.textDecoration = 'underline';
-            li.appendChild(a);
-            
-            sectionList.appendChild(li);
-        });
-    }
-    
-    // Seleccionar sección
-    function selectSection(e) {
-        e.stopPropagation();
-        
-        if (selectedSection) {
-            selectedSection.classList.remove('selected');
-        }
-        
-        selectedSection = this;
-        selectedSection.classList.add('selected');
-        
-        // Cargar propiedades en el formulario
-        document.getElementById('sectionName').value = this.querySelector('.section-title').textContent.split(' - $')[0];
-        document.getElementById('sectionPrice').value = this.querySelector('.section-title').textContent.split(' - $')[1];
-        document.getElementById('sectionColor').value = rgbToHex(getComputedStyle(this).backgroundColor);
-        
-        // Habilitar botón de eliminar
-        deleteSectionButton.disabled = false;
-    }
-    
-    // Deseleccionar al hacer clic en el mapa
-    venueMap.addEventListener('click', function(e) {
-        if (e.target === venueMap) {
-            if (selectedSection) {
-                selectedSection.classList.remove('selected');
-                selectedSection = null;
-                deleteSectionButton.disabled = true;
-            }
-        }
-    });
-    
-    // Aplicar propiedades
-    applyPropertiesButton.addEventListener('click', function() {
-        if (!selectedSection) return;
-        
-        const name = document.getElementById('sectionName').value;
-        const price = document.getElementById('sectionPrice').value;
-        const color = document.getElementById('sectionColor').value;
-        
-        selectedSection.querySelector('.section-title').textContent = `${name} - $${price}`;
-        selectedSection.style.backgroundColor = color;
-    });
-    
-    // Eliminar sección
-    deleteSectionButton.addEventListener('click', function() {
-        if (!selectedSection) return;
-        
-        venueMap.removeChild(selectedSection);
-        sections = sections.filter(s => s.element !== selectedSection);
-        selectedSection = null;
-        deleteSectionButton.disabled = true;
-        updateSectionsList();
-    });
-    
-    // Funcionalidad de arrastrar
-    let isDragging = false;
-    let dragOffsetX = 0;
-    let dragOffsetY = 0;
-    
-    function startDrag(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // No iniciar arrastre si se hizo clic en el controlador de redimensión
-        if (e.target.className === 'section-resize') return;
-        
-        // Seleccionar esta sección
-        if (selectedSection !== this) {
-            if (selectedSection) {
-                selectedSection.classList.remove('selected');
-            }
-            selectedSection = this;
-            selectedSection.classList.add('selected');
-            deleteSectionButton.disabled = false;
-        }
-        
-        isDragging = true;
-        
-        // Calcular offset para mantener la posición relativa al cursor
-        const rect = this.getBoundingClientRect();
-        dragOffsetX = e.clientX - rect.left;
-        dragOffsetY = e.clientY - rect.top;
-        
-        document.addEventListener('mousemove', drag);
-        document.addEventListener('mouseup', stopDrag);
-    }
-    
-    function drag(e) {
-        if (!isDragging || !selectedSection) return;
-        
-        const mapRect = venueMap.getBoundingClientRect();
-        const x = e.clientX - mapRect.left - dragOffsetX;
-        const y = e.clientY - mapRect.top - dragOffsetY;
-        
-        // Limitar al área del mapa
-        const limitedX = Math.max(0, Math.min(x, mapRect.width - parseInt(selectedSection.style.width)));
-        const limitedY = Math.max(0, Math.min(y, mapRect.height - parseInt(selectedSection.style.height)));
-        
-        selectedSection.style.left = `${limitedX}px`;
-        selectedSection.style.top = `${limitedY}px`;
-    }
-    
-    function stopDrag() {
-        isDragging = false;
-        document.removeEventListener('mousemove', drag);
-        document.removeEventListener('mouseup', stopDrag);
-    }
-    
-    // Funcionalidad de redimensionar
-    let isResizing = false;
-    let initialWidth, initialHeight, initialX, initialY;
-    
-    function startResize(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        isResizing = true;
-        
-        // Seleccionar la sección padre del controlador de redimensión
-        if (selectedSection !== this.parentElement) {
-            if (selectedSection) {
-                selectedSection.classList.remove('selected');
-            }
-            selectedSection = this.parentElement;
-            selectedSection.classList.add('selected');
-            deleteSectionButton.disabled = false;
-        }
-        
-        // Obtener dimensiones iniciales
-        initialWidth = parseInt(selectedSection.style.width);
-        initialHeight = parseInt(selectedSection.style.height);
-        initialX = e.clientX;
-        initialY = e.clientY;
-        
-        document.addEventListener('mousemove', resize);
-        document.addEventListener('mouseup', stopResize);
-    }
-    
-    function resize(e) {
-        if (!isResizing || !selectedSection) return;
-        
-        // Calcular nuevas dimensiones
-        const deltaX = e.clientX - initialX;
-        const deltaY = e.clientY - initialY;
-        
-        const newWidth = Math.max(50, initialWidth + deltaX);
-        const newHeight = Math.max(50, initialHeight + deltaY);
-        
-        selectedSection.style.width = `${newWidth}px`;
-        selectedSection.style.height = `${newHeight}px`;
-    }
-    
-    function stopResize() {
-        isResizing = false;
-        document.removeEventListener('mousemove', resize);
-        document.removeEventListener('mouseup', stopResize);
-    }
-
-    function persistVenueDesign(successMessage = 'Diseño guardado correctamente', reloadOnSuccess = true) {
-        const sectionData = [];
-        const seatData = [];
-
-        // Recopilar datos de secciones
-        sections.forEach(section => {
-            const el = section.element;
-
-            // Obtener posición y dimensiones actuales
-            const style = getComputedStyle(el);
-            const left = parseInt(style.left);
-            const top = parseInt(style.top);
-            const width = parseInt(style.width);
-            const height = parseInt(style.height);
-
-            // Obtener propiedades
-            const titleText = el.querySelector('.section-title').textContent;
-            const name = titleText.split(' - $')[0];
-            const price = parseFloat(titleText.split(' - $')[1]);
-
-            sectionData.push({
-                id: el.dataset.id,
-                name: name,
-                price: price,
-                color: rgbToHex(style.backgroundColor),
-                x_position: left,
-                y_position: top,
-                width: width,
-                height: height
-            });
-        });
-
-        // Recopilar datos de asientos
-        document.querySelectorAll('.theater-seat').forEach(seatEl => {
-            const style = getComputedStyle(seatEl);
-            seatData.push({
-                section_id: seatEl.dataset.sectionId,
-                row: seatEl.dataset.row,
-                number: seatEl.dataset.number,
-                x_position: parseInt(style.left),
-                y_position: parseInt(style.top),
-                status: seatEl.dataset.status || 'available'
-            });
-        });
-
-        // Enviar al servidor
-        const formData = new FormData();
-        formData.append('section_data', JSON.stringify(sectionData));
-        formData.append('seat_data', JSON.stringify(seatData));
-        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-
-        return fetch(window.location.href, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                if (successMessage) {
-                    alert(successMessage);
-                }
-                if (reloadOnSuccess) {
-                    window.location.reload();
-                }
-            } else {
-                alert('Error al guardar el diseño');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error de conexión');
-        });
-    }
-    
-    // Guardar diseño del venue
-    saveVenueButton.addEventListener('click', function() {
-        persistVenueDesign('Diseño guardado correctamente', true);
-    });
-    
-    // Modal de creación de secciones en bloque
-    bulkCreateSectionsButton.addEventListener('click', function() {
-        bulkCreateModal.style.display = 'block';
-    });
-    
-    cancelBulkCreate.addEventListener('click', function() {
-        bulkCreateModal.style.display = 'none';
-    });
-    
-    // Cerrar modal al hacer clic fuera
-    bulkCreateModal.addEventListener('click', function(e) {
-        if (e.target === bulkCreateModal) {
-            bulkCreateModal.style.display = 'none';
-        }
-    });
-    
-    function clearCurrentLayoutPreview() {
-        sections.forEach(section => {
-            if (section.element && section.element.parentNode === venueMap) {
-                venueMap.removeChild(section.element);
-            }
-        });
-
-        sections = [];
-        selectedSection = null;
-        deleteSectionButton.disabled = true;
-
-        document.querySelectorAll('.theater-seat, .auto-stage').forEach(el => el.remove());
-    }
-
-    function createStage(left, top, width, height, borderRadius = '10px') {
+    function drawStage(type) {
         const stage = document.createElement('div');
-        stage.className = 'auto-stage';
         stage.style.position = 'absolute';
-        stage.style.left = `${left}px`;
-        stage.style.top = `${top}px`;
-        stage.style.width = `${width}px`;
-        stage.style.height = `${height}px`;
-        stage.style.borderRadius = borderRadius;
-        stage.style.backgroundColor = '#333';
+        stage.style.background = '#333';
         stage.style.color = '#fff';
         stage.style.display = 'flex';
         stage.style.alignItems = 'center';
         stage.style.justifyContent = 'center';
-        stage.style.zIndex = '100';
+        stage.style.fontWeight = '600';
         stage.textContent = 'ESCENARIO';
+
+        if (type === 'arena') {
+            stage.style.left = '440px';
+            stage.style.top = '390px';
+            stage.style.width = '120px';
+            stage.style.height = '120px';
+            stage.style.borderRadius = '50%';
+        } else if (type === 'stadium') {
+            stage.style.left = '280px';
+            stage.style.top = '30px';
+            stage.style.width = '440px';
+            stage.style.height = '70px';
+            stage.style.borderRadius = '10px';
+        } else {
+            stage.style.left = '320px';
+            stage.style.top = '30px';
+            stage.style.width = '360px';
+            stage.style.height = '70px';
+            stage.style.borderRadius = '10px';
+        }
+
         venueMap.appendChild(stage);
     }
 
-    function generateAndSaveSelectedLayout() {
-        const templateType = document.getElementById('templateType').value;
-        const hasCurrentDesign = document.querySelectorAll('.section-block, .theater-seat').length > 0;
+    function getCurrentAreas() {
+        const rows = Array.from(areasForm.querySelectorAll('.area-row'));
+        return rows.map((row, index) => {
+            const nameInput = row.querySelector('.area-name');
+            const priceInput = row.querySelector('.area-price');
+            const base = layouts[venueTypeSelect.value][index];
 
-        if (hasCurrentDesign) {
-            const shouldReplace = confirm('Se reemplazará el diseño visible actual por una nueva propuesta automática.');
-            if (!shouldReplace) {
-                return false;
-            }
-        }
-
-        clearCurrentLayoutPreview();
-
-        if (templateType === 'theater') {
-            createTheaterLayout();
-        } else if (templateType === 'arena') {
-            createArenaLayout();
-        } else {
-            createStadiumLayout();
-        }
-
-        bulkCreateModal.style.display = 'none';
-        updateSectionsList();
-        persistVenueDesign('Diseño base generado y guardado correctamente', true);
-        return true;
-    }
-
-    // Crear secciones en bloque por tipo de recinto
-    createBulkSections.addEventListener('click', function() {
-        generateAndSaveSelectedLayout();
-    });
-
-    // Al seleccionar tipo de recinto, generar y guardar automáticamente
-    document.getElementById('templateType').addEventListener('change', function() {
-        generateAndSaveSelectedLayout();
-    });
-
-    function createTheaterLayout() {
-        const mapWidth = venueMap.clientWidth;
-        const mapHeight = venueMap.clientHeight;
-        const centerX = mapWidth / 2;
-
-        createStage(centerX - 180, 30, 360, 70);
-
-        createTheaterSection('VIP', centerX, 220, 700, 170, '#d94f4f', 220);
-        createTheaterSection('Preferencial', centerX, 430, 780, 170, '#f08a4b', 180);
-        createTheaterSection('General', centerX, 640, 860, 170, '#4da261', 130);
-    }
-
-    function createArenaLayout() {
-        const mapWidth = venueMap.clientWidth;
-        const mapHeight = venueMap.clientHeight;
-        const centerX = mapWidth / 2;
-        const centerY = mapHeight / 2;
-        const colors = ['#d94f4f', '#f08a4b', '#e6c229', '#4da261', '#2a9d8f', '#4f7bd9', '#8b5cf6', '#c24193'];
-
-        createStage(centerX - 60, centerY - 60, 120, 120, '50%');
-
-        const totalSections = 8;
-        const radius = 330;
-
-        for (let i = 0; i < totalSections; i++) {
-            const angle = (2 * Math.PI * i) / totalSections;
-            const sectionX = centerX + Math.cos(angle) * radius;
-            const sectionY = centerY + Math.sin(angle) * radius;
-
-            createTheaterSection(
-                `Arena ${i + 1}`,
-                sectionX,
-                sectionY,
-                170,
-                120,
-                colors[i % colors.length],
-                160
-            );
-        }
-    }
-
-    function createStadiumLayout() {
-        const mapWidth = venueMap.clientWidth;
-        const centerX = mapWidth / 2;
-
-        createStage(centerX - 220, 20, 440, 70);
-
-        createTheaterSection('Tribuna Norte', centerX, 175, 860, 120, '#2a9d8f', 190);
-        createTheaterSection('Occidental', centerX - 360, 390, 140, 370, '#4f7bd9', 170);
-        createTheaterSection('Oriental', centerX + 360, 390, 140, 370, '#8b5cf6', 170);
-        createTheaterSection('Tribuna Sur', centerX, 610, 860, 140, '#4da261', 140);
-        createTheaterSection('Gramilla Lateral', centerX, 810, 760, 130, '#e6c229', 110);
-    }
-    
-    // Actualizar la función createTheaterSection para que los asientos se acoplen a cualquier sección
-    function createTheaterSection(name, centerX, centerY, width, height, color, price) {
-        // Crear la sección principal
-        const sectionId = nextSectionId--;
-        
-        const section = {
-            id: sectionId,
-            name: name,
-            price: price,
-            color: color,
-            x_position: centerX - width/2,
-            y_position: centerY - height/2,
-            width: width,
-            height: height
-        };
-        
-        // Crear el elemento de sección utilizando la función existente
-        const sectionEl = createSectionElement({
-            id: sectionId,
-            name: name,
-            price: price,
-            color: color,
-            x_position: centerX - width/2,
-            y_position: centerY - height/2,
-            width: width,
-            height: height
+            return {
+                name: (nameInput.value || base.name).trim(),
+                price: parseFloat(priceInput.value || base.price),
+                color: base.color,
+                x: base.x,
+                y: base.y,
+                width: base.width,
+                height: base.height,
+            };
         });
-        
-        // Agregar los asientos dentro de la sección
-        populateSeatsInSection(sectionEl);
-        
-        return sectionEl;
     }
-    
-    // Nueva función para generar asientos dentro de cualquier sección
-    function populateSeatsInSection(sectionEl) {
-        // Obtener dimensiones y posición de la sección
-        const style = getComputedStyle(sectionEl);
-        const sectionX = parseInt(style.left);
-        const sectionY = parseInt(style.top);
-        const sectionWidth = parseInt(style.width);
-        const sectionHeight = parseInt(style.height);
-        const sectionColor = style.backgroundColor;
-        
-        // Configuración de asientos
-        const seatWidth = 20; // ancho de cada asiento en px
-        const seatHeight = 20; // alto de cada asiento en px
-        const seatMargin = 5; // margen entre asientos
-        const headerSpace = 30; // espacio para el encabezado de la sección
-        
-        // Determinar número de filas y asientos por fila
-        const rows = Math.floor((sectionHeight - headerSpace) / (seatHeight + seatMargin));
-        
-        // Generar asientos adaptados a la forma de la sección
-        for (let row = 0; row < rows; row++) {
-            // Determinar la letra de la fila (A, B, C, ...)
-            const rowLetter = String.fromCharCode(65 + row);
-            
-            // Calcular el ancho disponible para esta fila
-            let availableWidth = sectionWidth;
-            let rowOffsetX = 0;
-            
-            // Si la sección tiene forma trapezoidal o curva, ajustar el ancho por fila
-            const isSpecialShape = !sectionEl.dataset.id.includes("Side") && !sectionEl.dataset.id.includes("Rectangle");
-            if (isSpecialShape) {
-                // Factor de curvatura (0 para recta, mayor para más curvo)
-                const curveFactor = 0.2;
-                
-                // Normalizar posición de la fila (0 = arriba, 1 = abajo)
-                const rowPos = row / (rows - 1);
-                
-                // Reducir el ancho en las filas superiores para crear un efecto curvo
-                const widthRatio = 0.7 + 0.3 * Math.sin(rowPos * Math.PI);
-                availableWidth = sectionWidth * widthRatio;
-                
-                // Centrar la fila reducida
-                rowOffsetX = (sectionWidth - availableWidth) / 2;
-            }
-            
-            // Calcular cuántos asientos caben en esta fila
-            const seatsInRow = Math.floor(availableWidth / (seatWidth + seatMargin));
-            
-            // Distribuir los asientos equitativamente
-            const totalWidthNeeded = seatsInRow * (seatWidth + seatMargin);
-            const startX = sectionX + rowOffsetX + (availableWidth - totalWidthNeeded) / 2;
-            
-            // Crear los asientos para esta fila
-            for (let seat = 0; seat < seatsInRow; seat++) {
-                // Crear el elemento visual del asiento
-                const seatEl = document.createElement('div');
-                seatEl.className = 'theater-seat';
-                seatEl.style.position = 'absolute';
-                seatEl.style.width = `${seatWidth}px`;
-                seatEl.style.height = `${seatHeight}px`;
-                seatEl.style.backgroundColor = sectionColor;
-                seatEl.style.border = '1px solid rgba(0,0,0,0.3)';
-                seatEl.style.borderRadius = '3px';
-                seatEl.style.boxShadow = '0 2px 2px rgba(0,0,0,0.1)';
-                seatEl.style.zIndex = '10';
-                seatEl.style.fontSize = '8px';
-                seatEl.style.color = '#333';
-                seatEl.style.display = 'flex';
-                seatEl.style.alignItems = 'center';
-                seatEl.style.justifyContent = 'center';
-                seatEl.style.cursor = 'pointer';
-                
-                // Posicionar el asiento
-                const seatX = startX + seat * (seatWidth + seatMargin);
-                const seatY = sectionY + headerSpace + row * (seatHeight + seatMargin);
-                
-                seatEl.style.left = `${seatX}px`;
-                seatEl.style.top = `${seatY}px`;
-                
-                // Numeración de asientos
-                seatEl.textContent = `${rowLetter}${seat+1}`;
-                seatEl.dataset.sectionId = sectionEl.dataset.id;
-                seatEl.dataset.row = rowLetter;
-                seatEl.dataset.number = seat + 1;
-                seatEl.dataset.status = 'available';
-                
-                // Añadir eventos para manipulación de asientos
-                seatEl.addEventListener('mousedown', startSeatDrag);
-                seatEl.addEventListener('click', selectIndividualSeat);
-                
-                // Añadir al mapa
-                venueMap.appendChild(seatEl);
-            }
-        }
+
+    function renderPreview() {
+        venueMap.innerHTML = '';
+        drawStage(venueTypeSelect.value);
+
+        getCurrentAreas().forEach(area => {
+            const block = document.createElement('div');
+            block.style.position = 'absolute';
+            block.style.left = `${area.x}px`;
+            block.style.top = `${area.y}px`;
+            block.style.width = `${area.width}px`;
+            block.style.height = `${area.height}px`;
+            block.style.background = area.color;
+            block.style.border = '1px solid rgba(0,0,0,0.25)';
+            block.style.borderRadius = '6px';
+            block.style.display = 'flex';
+            block.style.alignItems = 'center';
+            block.style.justifyContent = 'center';
+            block.style.textAlign = 'center';
+            block.style.padding = '6px';
+            block.style.fontWeight = '600';
+            block.style.color = '#111';
+            block.textContent = `${area.name} - $${area.price}`;
+            venueMap.appendChild(block);
+        });
     }
-    
-    // Función para seleccionar asiento individual
-    function selectIndividualSeat(e) {
-        e.stopPropagation(); // Evitar que el clic se propague a la sección
-        
-        // Deseleccionar sección si hay alguna seleccionada
-        if (selectedSection) {
-            selectedSection.classList.remove('selected');
-            selectedSection = null;
-            deleteSectionButton.disabled = true;
-            generateSeatsButton.disabled = true;
-        }
-        
-        // Deseleccionar asiento anterior
-        if (selectedSeat) {
-            selectedSeat.style.border = '1px solid rgba(0,0,0,0.3)';
-        }
-        
-        // Seleccionar este asiento
-        selectedSeat = this;
-        selectedSeat.style.border = '2px solid #000';
-        
-        // Mostrar panel de propiedades y cargar datos del asiento
-        seatPropertiesPanel.style.display = 'block';
-        document.getElementById('seatRow').value = this.dataset.row;
-        document.getElementById('seatNumber').value = this.dataset.number;
-        document.getElementById('seatStatus').value = this.dataset.status || 'available';
+
+    function renderAreaForm() {
+        const selectedType = venueTypeSelect.value;
+        const templateAreas = layouts[selectedType];
+
+        areasForm.innerHTML = '';
+
+        templateAreas.forEach((area, index) => {
+            const existing = existingSections[index] || {};
+            const row = document.createElement('div');
+            row.className = 'area-row';
+            row.style.border = '1px solid #e5e5e5';
+            row.style.borderRadius = '6px';
+            row.style.padding = '10px';
+            row.style.marginBottom = '10px';
+            row.innerHTML = `
+                <label style="display:block; margin-bottom:6px;">Nombre del area</label>
+                <input class="area-name" type="text" value="${existing.name || area.name}" style="width:100%; padding:7px; margin-bottom:8px;" />
+                <label style="display:block; margin-bottom:6px;">Costo</label>
+                <input class="area-price" type="number" min="0" step="0.01" value="${existing.price || area.price}" style="width:100%; padding:7px;" />
+            `;
+            areasForm.appendChild(row);
+        });
+
+        renderPreview();
     }
-    
-    // Iniciar arrastre de asiento
-    function startSeatDrag(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Seleccionar este asiento
-        selectIndividualSeat.call(this, e);
-        
-        isDraggingSeat = true;
-        
-        // Calcular offset para mantener la posición relativa al cursor
-        const rect = this.getBoundingClientRect();
-        seatDragOffsetX = e.clientX - rect.left;
-        seatDragOffsetY = e.clientY - rect.top;
-        
-        document.addEventListener('mousemove', dragSeat);
-        document.addEventListener('mouseup', stopSeatDrag);
-    }
-    
-    // Arrastrar asiento
-    function dragSeat(e) {
-        if (!isDraggingSeat || !selectedSeat) return;
-        
-        const mapRect = venueMap.getBoundingClientRect();
-        const x = e.clientX - mapRect.left - seatDragOffsetX;
-        const y = e.clientY - mapRect.top - seatDragOffsetY;
-        
-        // Limitar al área del mapa
-        const seatWidth = parseInt(selectedSeat.style.width);
-        const seatHeight = parseInt(selectedSeat.style.height);
-        
-        const limitedX = Math.max(0, Math.min(x, mapRect.width - seatWidth));
-        const limitedY = Math.max(0, Math.min(y, mapRect.height - seatHeight));
-        
-        selectedSeat.style.left = `${limitedX}px`;
-        selectedSeat.style.top = `${limitedY}px`;
-    }
-    
-    // Detener arrastre de asiento
-    function stopSeatDrag() {
-        isDraggingSeat = false;
-        document.removeEventListener('mousemove', dragSeat);
-        document.removeEventListener('mouseup', stopSeatDrag);
-    }
-    
-    // Deseleccionar asiento al hacer clic en el mapa
-    const originalVenueMapClick = venueMap.onclick;
-    venueMap.onclick = function(e) {
-        if (e.target === venueMap) {
-            // Deseleccionar sección (código existente)
-            if (selectedSection) {
-                selectedSection.classList.remove('selected');
-                selectedSection = null;
-                deleteSectionButton.disabled = true;
-                generateSeatsButton.disabled = true;
-            }
-            
-            // Deseleccionar asiento
-            if (selectedSeat) {
-                selectedSeat.style.border = '1px solid rgba(0,0,0,0.3)';
-                selectedSeat = null;
-                seatPropertiesPanel.style.display = 'none';
-            }
-        }
-    };
-    
-    // Aplicar propiedades al asiento
-    document.getElementById('applySeatProps').addEventListener('click', function() {
-        if (!selectedSeat) return;
-        
-        const row = document.getElementById('seatRow').value;
-        const number = document.getElementById('seatNumber').value;
-        const status = document.getElementById('seatStatus').value;
-        
-        selectedSeat.dataset.row = row;
-        selectedSeat.dataset.number = number;
-        selectedSeat.dataset.status = status;
-        
-        // Actualizar etiqueta
-        selectedSeat.textContent = `${row}${number}`;
-        
-        // Actualizar color según estado
-        switch (status) {
-            case 'available':
-                // Mantener el color de la sección
-                break;
-            case 'blocked':
-                selectedSeat.style.backgroundColor = '#999999';
-                break;
-            case 'reserved':
-                selectedSeat.style.backgroundColor = '#FFCC00';
-                break;
-            case 'sold':
-                selectedSeat.style.backgroundColor = '#FF3333';
-                break;
-        }
+
+    areasForm.addEventListener('input', function() {
+        renderPreview();
     });
-    
-    // Eliminar asiento seleccionado
-    document.getElementById('deleteSeat').addEventListener('click', function() {
-        if (!selectedSeat) return;
-        
-        // Eliminar el asiento del DOM
-        venueMap.removeChild(selectedSeat);
-        selectedSeat = null;
-        
-        // Ocultar panel de propiedades
-        seatPropertiesPanel.style.display = 'none';
+
+    venueTypeSelect.addEventListener('change', function() {
+        renderAreaForm();
     });
-    
-    // Añadir botón para crear asiento individual
-    const addSeatButton = document.createElement('button');
-    addSeatButton.id = 'addSingleSeat';
-    addSeatButton.textContent = 'Añadir Asiento Individual';
-    addSeatButton.style.marginTop = '15px';
-    document.querySelector('.venue-tools').insertBefore(addSeatButton, document.getElementById('generateSeats'));
-    
-    // Evento para añadir asiento individual
-    addSeatButton.addEventListener('click', function() {
-        // Crear un nuevo asiento
-        const seatEl = document.createElement('div');
-        seatEl.className = 'theater-seat';
-        seatEl.style.position = 'absolute';
-        seatEl.style.width = '20px';
-        seatEl.style.height = '20px';
-        seatEl.style.backgroundColor = '#CCCCCC';
-        seatEl.style.border = '1px solid rgba(0,0,0,0.3)';
-        seatEl.style.borderRadius = '3px';
-        seatEl.style.boxShadow = '0 2px 2px rgba(0,0,0,0.1)';
-        seatEl.style.zIndex = '10';
-        seatEl.style.fontSize = '8px';
-        seatEl.style.color = '#333';
-        seatEl.style.display = 'flex';
-        seatEl.style.alignItems = 'center';
-        seatEl.style.justifyContent = 'center';
-        seatEl.style.cursor = 'pointer';
-        
-        // Posicionar en el centro del mapa visible
-        const mapRect = venueMap.getBoundingClientRect();
-        const centerX = mapRect.width / 2;
-        const centerY = mapRect.height / 2;
-        
-        seatEl.style.left = `${centerX - 10}px`; // 10 = mitad del ancho del asiento
-        seatEl.style.top = `${centerY - 10}px`; // 10 = mitad del alto del asiento
-        
-        // Asignar fila y número por defecto
-        seatEl.dataset.row = 'X';
-        seatEl.dataset.number = '1';
-        seatEl.dataset.status = 'available';
-        seatEl.textContent = 'X1';
-        
-        // Añadir eventos
-        seatEl.addEventListener('mousedown', startSeatDrag);
-        seatEl.addEventListener('click', selectIndividualSeat);
-        
-        // Añadir al mapa
-        venueMap.appendChild(seatEl);
-        
-        // Seleccionar automáticamente
-        selectIndividualSeat.call(seatEl, {stopPropagation: () => {}});
+
+    saveConfigButton.addEventListener('click', function() {
+        const areas = getCurrentAreas().map(area => ({
+            name: area.name,
+            price: area.price,
+        }));
+
+        const formData = new FormData();
+        formData.append('venue_type', venueTypeSelect.value);
+        formData.append('areas', JSON.stringify(areas));
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Configuracion guardada correctamente');
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'No se pudo guardar la configuracion');
+                }
+            })
+            .catch(() => {
+                alert('Error de conexion al guardar la configuracion');
+            });
     });
+
+    venueTypeSelect.value = '{{ default_venue_type }}' || 'theater';
+    renderAreaForm();
 });
 </script>
 {% endblock %}

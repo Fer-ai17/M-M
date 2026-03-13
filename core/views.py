@@ -194,84 +194,150 @@ def seat_map_designer(request, section_id):
     }
     return render(request, 'admin/seat_map_designer.html', context)
 
+
+PREDEFINED_VENUE_LAYOUTS = {
+    "theater": [
+        {"name": "VIP", "price": Decimal("220.00"), "color": "#d94f4f", "x": 150, "y": 160, "width": 700, "height": 170},
+        {"name": "Preferencial", "price": Decimal("180.00"), "color": "#f08a4b", "x": 110, "y": 390, "width": 780, "height": 170},
+        {"name": "General", "price": Decimal("130.00"), "color": "#4da261", "x": 70, "y": 620, "width": 860, "height": 170},
+    ],
+    "arena": [
+        {"name": "Arena 1", "price": Decimal("160.00"), "color": "#d94f4f", "x": 450, "y": 120, "width": 170, "height": 120},
+        {"name": "Arena 2", "price": Decimal("160.00"), "color": "#f08a4b", "x": 700, "y": 220, "width": 170, "height": 120},
+        {"name": "Arena 3", "price": Decimal("160.00"), "color": "#e6c229", "x": 790, "y": 430, "width": 170, "height": 120},
+        {"name": "Arena 4", "price": Decimal("160.00"), "color": "#4da261", "x": 700, "y": 640, "width": 170, "height": 120},
+        {"name": "Arena 5", "price": Decimal("160.00"), "color": "#2a9d8f", "x": 450, "y": 740, "width": 170, "height": 120},
+        {"name": "Arena 6", "price": Decimal("160.00"), "color": "#4f7bd9", "x": 200, "y": 640, "width": 170, "height": 120},
+        {"name": "Arena 7", "price": Decimal("160.00"), "color": "#8b5cf6", "x": 110, "y": 430, "width": 170, "height": 120},
+        {"name": "Arena 8", "price": Decimal("160.00"), "color": "#c24193", "x": 200, "y": 220, "width": 170, "height": 120},
+    ],
+    "stadium": [
+        {"name": "Tribuna Norte", "price": Decimal("190.00"), "color": "#2a9d8f", "x": 70, "y": 150, "width": 860, "height": 120},
+        {"name": "Occidental", "price": Decimal("170.00"), "color": "#4f7bd9", "x": 90, "y": 320, "width": 140, "height": 370},
+        {"name": "Oriental", "price": Decimal("170.00"), "color": "#8b5cf6", "x": 770, "y": 320, "width": 140, "height": 370},
+        {"name": "Tribuna Sur", "price": Decimal("140.00"), "color": "#4da261", "x": 70, "y": 620, "width": 860, "height": 140},
+        {"name": "Gramilla Lateral", "price": Decimal("110.00"), "color": "#e6c229", "x": 120, "y": 790, "width": 760, "height": 110},
+    ],
+}
+
+
+def _safe_decimal(value, default_value):
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return Decimal(str(default_value))
+
+
+def _generate_default_seats_for_section(section):
+    seat_width = 20
+    seat_height = 20
+    seat_margin = 5
+    header_space = 30
+
+    rows = max(1, (section.height - header_space) // (seat_height + seat_margin))
+    seats_in_row = max(1, section.width // (seat_width + seat_margin))
+
+    total_row_width = seats_in_row * (seat_width + seat_margin)
+    start_x = section.x_position + max(0, (section.width - total_row_width) // 2)
+
+    for row_index in range(rows):
+        if row_index < 26:
+            row_label = chr(65 + row_index)
+        else:
+            row_label = f"R{row_index + 1}"
+
+        seat_y = section.y_position + header_space + (row_index * (seat_height + seat_margin))
+
+        for seat_number in range(1, seats_in_row + 1):
+            seat_x = start_x + ((seat_number - 1) * (seat_width + seat_margin))
+            Seat.objects.create(
+                section=section,
+                row=row_label,
+                number=str(seat_number),
+                x_position=seat_x,
+                y_position=seat_y,
+                status='available',
+            )
+
+
+def _sync_location_from_venue(venue):
+    min_section_price = Section.objects.filter(venue=venue).order_by('price').values_list('price', flat=True).first()
+    if min_section_price is None:
+        min_section_price = Decimal('0.00')
+
+    available_seat_count = Seat.objects.filter(section__venue=venue, status='available').count()
+    loc_code = f"VENUE-{venue.id}"
+
+    location, _ = Location.objects.get_or_create(
+        loc_code=loc_code,
+        defaults={
+            'name': venue.name,
+            'price': min_section_price,
+            'stock': available_seat_count,
+        }
+    )
+
+    location.name = venue.name
+    location.price = min_section_price
+    location.stock = available_seat_count
+    location.save()
+    return location
+
+
 @staff_member_required
 def venue_designer(request, venue_id):
-    """Herramienta para diseñar la estructura del venue (secciones)"""
+    """Configura un venue con plantillas predefinidas de areas y precios."""
     venue = get_object_or_404(Venue, pk=venue_id)
     
     if request.method == "POST":
-        section_data = json.loads(request.POST.get('section_data', '[]'))
-        seat_data = json.loads(request.POST.get('seat_data', '[]')) if 'seat_data' in request.POST else []
-        temp_to_real_section_ids = {}
-        
-        # Procesar secciones
-        for data in section_data:
-            raw_section_id = data.get('id')
+        venue_type = request.POST.get('venue_type', 'theater')
+        if venue_type not in PREDEFINED_VENUE_LAYOUTS:
+            return JsonResponse({'success': False, 'message': 'Tipo de recinto invalido'})
 
-            try:
-                section_id = int(raw_section_id)
-            except (TypeError, ValueError):
-                section_id = None
+        try:
+            area_payload = json.loads(request.POST.get('areas', '[]'))
+        except json.JSONDecodeError:
+            area_payload = []
 
-            if section_id and section_id > 0:
-                section = Section.objects.filter(id=section_id, venue=venue).first()
-                if not section:
-                    section = Section(venue=venue)
-            else:
-                section = Section(venue=venue)
-            
-            section.name = data.get('name', 'Nueva Sección')
-            section.price = data.get('price', 0)
-            section.color = data.get('color', '#CCCCCC')
-            section.x_position = data.get('x_position', 0)
-            section.y_position = data.get('y_position', 0)
-            section.width = data.get('width', 200)
-            section.height = data.get('height', 150)
-            section.save()
+        # Reemplazar completamente la configuracion previa
+        Section.objects.filter(venue=venue).delete()
 
-            if section_id and section_id < 0:
-                temp_to_real_section_ids[section_id] = section.id
-        
-        # Procesar asientos si los hay
-        for data in seat_data:
-            raw_section_id = data.get('section_id')
+        template_layout = PREDEFINED_VENUE_LAYOUTS[venue_type]
+        for index, item in enumerate(template_layout):
+            incoming = area_payload[index] if index < len(area_payload) and isinstance(area_payload[index], dict) else {}
+            area_name = (incoming.get('name') or item['name']).strip()
+            if not area_name:
+                area_name = item['name']
 
-            try:
-                section_id = int(raw_section_id)
-            except (TypeError, ValueError):
-                continue
+            area_price = _safe_decimal(incoming.get('price'), item['price'])
 
-            # Resolver IDs temporales de frontend a IDs reales de DB
-            if section_id < 0:
-                section_id = temp_to_real_section_ids.get(section_id)
-                if not section_id:
-                    continue
-                
-            try:
-                section = Section.objects.get(id=section_id, venue=venue)
-                
-                # Buscar si ya existe un asiento con la misma fila y número en esta sección
-                try:
-                    seat = Seat.objects.get(
-                        section=section,
-                        row=data.get('row', 'A'),
-                        number=data.get('number', '1')
-                    )
-                except Seat.DoesNotExist:
-                    seat = Seat(section=section)
-                
-                seat.row = data.get('row', 'A')
-                seat.number = data.get('number', '1')
-                seat.x_position = data.get('x_position', 0)
-                seat.y_position = data.get('y_position', 0)
-                seat.status = data.get('status', 'available')
-                seat.save()
-            except Section.DoesNotExist:
-                pass  # Ignorar asientos de secciones que no existen
+            section = Section.objects.create(
+                venue=venue,
+                name=area_name[:50],
+                price=area_price,
+                color=item['color'],
+                x_position=item['x'],
+                y_position=item['y'],
+                width=item['width'],
+                height=item['height'],
+            )
+            _generate_default_seats_for_section(section)
+
+        synced_location = _sync_location_from_venue(venue)
+        Events.objects.filter(venue=venue).update(location=synced_location, has_seat_map=True)
         
         return JsonResponse({'success': True})
-    
-    sections = Section.objects.filter(venue=venue).values(
+
+    sections_qs = Section.objects.filter(venue=venue)
+    section_count = sections_qs.count()
+    if section_count == len(PREDEFINED_VENUE_LAYOUTS['arena']):
+        default_venue_type = 'arena'
+    elif section_count == len(PREDEFINED_VENUE_LAYOUTS['stadium']):
+        default_venue_type = 'stadium'
+    else:
+        default_venue_type = 'theater'
+
+    sections = sections_qs.values(
         'id', 'name', 'price', 'color', 
         'x_position', 'y_position', 'width', 'height'
     )
@@ -284,6 +350,7 @@ def venue_designer(request, venue_id):
     
     context = {
         'venue': venue,
+        'default_venue_type': default_venue_type,
         'sections_json': json.dumps(list(sections), cls=DjangoJSONEncoder),
         'seats_json': json.dumps(list(seats), cls=DjangoJSONEncoder)
     }
@@ -346,6 +413,12 @@ def admin_dashboard_events(request):
     events = Events.objects.select_related("location", "artist").all().order_by("-id")
     return render(request, "store/admin_dashboard_products.html", {"events": events})
 
+
+@staff_member_required
+def venue_list(request):
+    venues = Venue.objects.all().order_by("name")
+    return render(request, "store/venue_list.html", {"venues": venues})
+
 def search_events(request):
     query = request.GET.get("q", "")
     events = Events.objects.filter(name__icontains=query) | Events.objects.filter(description__icontains=query)
@@ -373,6 +446,19 @@ def create_venue(request):
 
     return render(request, "store/create_venue.html", {"form": form})
 
+
+@staff_member_required
+def delete_venue(request, venue_id):
+    if request.method != "POST":
+        messages.error(request, "Método no permitido para eliminar lugares.")
+        return redirect("admin_dashboard")
+
+    venue = get_object_or_404(Venue, pk=venue_id)
+    venue_name = venue.name
+    venue.delete()
+    messages.success(request, f"Lugar '{venue_name}' eliminado correctamente.")
+    return redirect("admin_dashboard")
+
 #CRUD-Events
 @staff_member_required
 def create_events(request):
@@ -382,7 +468,12 @@ def create_events(request):
     if request.method == "POST":
         form = EventsForm(request.POST, request.FILES)
         if form.is_valid():
-            form.save()
+            event = form.save(commit=False)
+            selected_venue = form.cleaned_data["venue"]
+            event.venue = selected_venue
+            event.location = _sync_location_from_venue(selected_venue)
+            event.has_seat_map = True
+            event.save()
             return redirect("admin_dashboard_events")
     else:
         form = EventsForm()
@@ -408,7 +499,12 @@ def edit_events(request, pk):
     if request.method == "POST":
         form = EventsForm(request.POST, request.FILES, instance=events)
         if form.is_valid():
-            form.save()
+            event = form.save(commit=False)
+            selected_venue = form.cleaned_data["venue"]
+            event.venue = selected_venue
+            event.location = _sync_location_from_venue(selected_venue)
+            event.has_seat_map = True
+            event.save()
             return redirect("admin_dashboard_events")
     else:
         form = EventsForm(instance=events)

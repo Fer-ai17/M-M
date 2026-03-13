@@ -9,16 +9,16 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("dashboard/events/", views.admin_dashboard_events, name="admin_dashboard_events"),
+    path("venues/", views.venue_list, name="venue_list"),
     
     #interactive maping for seating
     path('events/<int:event_id>/seats/', views.seat_map, name='seat_map'),
     path('seats/<int:seat_id>/toggle/', views.toggle_seat, name='toggle_seat'),
     path('events/<int:event_id>/reserve-seats/', views.reserve_seats, name='reserve_seats'),
     path('venues/new/', views.create_venue, name='create_venue'),
+    path('venues/<int:venue_id>/delete/', views.delete_venue, name='delete_venue'),
     # Diseñador de venue (secciones)
     path('venue-designer/<int:venue_id>/', views.venue_designer, name='venue_designer'),
-    # Diseñador de asientos (dentro de una sección)
-    path('section-designer/<int:section_id>/', views.seat_map_designer, name='section_designer'),
     
 
     # CRUD - Events

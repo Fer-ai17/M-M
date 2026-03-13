@@ -44,11 +44,15 @@ class EditForm(forms.ModelForm):
         fields = ["name", "lastname", "document", "typedocument", "cellphone", "email"]
         
 class EventsForm(forms.ModelForm):
+    venue = forms.ModelChoiceField(
+        queryset=Venue.objects.all().order_by("name"),
+        required=True,
+        label="Recinto",
+    )
+
     class Meta:
         model = Events
-        fields = ["name", "description", "start_date", "end_date", "location", "artist"]
-        fields = ["name", "description", "start_date", "end_date", "location", "artist", "label"]
-        fields = ["name", "description", "start_date", "end_date", "location", "artist", "place", "label"]
+        fields = ["name", "description", "start_date", "end_date", "venue", "artist", "place", "label"]
 
         widgets = {
             # si quieres fecha+hora:
@@ -64,6 +68,9 @@ class EventsForm(forms.ModelForm):
         # input_formats para que Django acepte el valor enviado por el widget
         self.fields["start_date"].input_formats = ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S")
         self.fields["end_date"].input_formats = ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S")
+
+        if self.instance and self.instance.pk and self.instance.venue_id:
+            self.fields["venue"].initial = self.instance.venue
 
 class ArtistForm(forms.ModelForm):
     events = forms.ModelChoiceField(queryset=Events.objects.all(), required=False, widget=forms.CheckboxSelectMultiple)
